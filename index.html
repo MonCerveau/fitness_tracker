@@ -3,10 +3,19 @@
 <body>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
+        // Ждем полной инициализации Telegram WebApp
+        window.Telegram.WebApp.ready();
+        
+        // Получаем start_param после инициализации
         const tg = window.Telegram.WebApp;
         const telegramId = tg.initDataUnsafe?.start_param || '';
         
+        // Выводим результат
         document.write('Telegram ID из start_param: ' + (telegramId || 'не найден'));
+        
+        // Дополнительная диагностика (можно удалить)
+        console.log('Все initDataUnsafe:', tg.initDataUnsafe);
+        console.log('start_param напрямую:', tg.initDataUnsafe?.start_param);
     </script>
 </body>
 </html>
