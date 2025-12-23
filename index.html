@@ -9,19 +9,24 @@
     <div id="result"></div>
 
     <script>
-        // Получаем параметры из URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const userId = urlParams.get('startapp'); // start_param становится startapp
-        
         // Telegram WebApp
         const tg = window.Telegram.WebApp;
-        tg.expand();
         
-        // Выводим ID
+        // Получаем start_param который вы передали в боте
+        const userId = tg.startParam;
+        
+        // Выводим результат
         document.getElementById('result').innerHTML = `
-            <h1>Telegram ID: ${userId}</h1>
-            <p>Этот ID получен из start_param бота</p>
+            <h1>User ID: ${userId || 'не найден'}</h1>
         `;
+        
+        // Если нужно отправить на сервер
+        if (userId) {
+            fetch(`/api/user/${userId}`);
+        }
+        
+        // Для отладки в консоль
+        console.log('startParam:', tg.startParam);
     </script>
 </body>
 </html>
