@@ -3,50 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <title>Дневник тренировок</title>
-
-    <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-        }
-        .card {
-            border: 1px solid #ddd;
-            padding: 20px;
-            border-radius: 10px;
-        }
-        .id {
-            font-size: 20px;
-            font-weight: bold;
-            color: #2a7cff;
-        }
-    </style>
 </head>
 <body>
 
-<div class="card">
-    <h2>📖 Дневник тренировок</h2>
-    <p>Ваш user_id:</p>
-    <div class="id" id="userId">—</div>
-</div>
+<h2>📖 Дневник тренировок</h2>
+<p>Telegram user_id:</p>
+<h3 id="userId">—</h3>
 
 <script>
     const tg = window.Telegram.WebApp;
-
-    // Инициализация Mini App
     tg.ready();
 
     /*
-      start_param приходит в tg.initDataUnsafe.start_param
-      именно туда Telegram кладёт параметр,
-      который ты передал как start_param=user_id
+      ЭТОТ ID:
+      - приходит от Telegram автоматически
+      - равен message.from_user.id в боте
+      - безопасен и стабильный
     */
-    const userId = tg.initDataUnsafe?.start_param;
+    const userId = tg.initDataUnsafe.user.id;
 
-    document.getElementById("userId").textContent =
-        userId ? userId : "user_id не передан";
+    document.getElementById("userId").textContent = userId;
 </script>
 
 </body>
