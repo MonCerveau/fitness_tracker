@@ -17,7 +17,7 @@ const tg = Telegram.WebApp;
 tg.ready();
 
 const userId = tg.initDataUnsafe.user.id;
-const API = "https://fitness-tracker-backend-dhos.onrender.com";
+const API = "https://fitness-tracker-backend-ef0q.onrender.com";
 
 async function loadWorkouts() {
     const res = await fetch(`${API}/workouts/${userId}`);
@@ -60,3 +60,4 @@ loadWorkouts();
 
 </body>
 </html>
+
