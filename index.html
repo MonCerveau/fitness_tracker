@@ -1,264 +1,302 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Тренировки</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Дневник тренировок</title>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
-* { box-sizing: border-box; font-family: system-ui, sans-serif; }
-body { margin: 0; background: #0f0f0f; color: #fff; }
+:root {
+  --bg:#0f0f0f; --card:#1e1e1e; --accent:#2563eb; --danger:#b91c1c;
+}
+*{box-sizing:border-box;font-family:system-ui;}
+body{margin:0;background:var(--bg);color:#fff;}
 
-header {
-  padding: 16px;
-  font-size: 20px;
-  font-weight: 600;
-  text-align: center;
-  border-bottom: 1px solid #222;
+header{
+  padding:12px;
+  text-align:center;
+  font-size:18px;
+  border-bottom:1px solid #222;
 }
 
-#content { padding: 12px; }
-
-.workout {
-  background: #1e1e1e;
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 12px;
+#calendar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:8px 12px;
 }
 
-.exercise { margin-top: 6px; font-size: 14px; }
-.set { color: #aaa; margin-left: 10px; }
-
-button {
-  background: #2563eb;
-  color: #fff;
-  border: none;
-  padding: 10px;
-  border-radius: 10px;
-  width: 100%;
-  margin-top: 8px;
+#calendar button{
+  background:#222;border:none;color:#fff;padding:6px 10px;border-radius:8px;
 }
 
-button.secondary { background: #333; }
-button.danger { background: #b91c1c; }
-
-.fab {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  font-size: 24px;
+#days{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:4px;
+  padding:8px;
 }
 
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.7);
-  display: none;
-  justify-content: center;
-  align-items: center;
+.day{
+  text-align:center;
+  padding:6px;
+  border-radius:6px;
+  background:#1a1a1a;
+  font-size:12px;
+}
+.day.has{background:var(--accent);}
+.day.active{outline:2px solid #fff;}
+
+#content{padding:10px;}
+
+.workout{
+  background:var(--card);
+  border-radius:12px;
+  padding:10px;
+  margin-bottom:10px;
 }
 
-.modal.open { display: flex; }
-
-.modal-content {
-  background: #121212;
-  width: 100%;
-  max-width: 420px;
-  max-height: 90vh;
-  overflow-y: auto;
-  border-radius: 16px;
-  padding: 16px;
+.workout-header{
+  display:flex;
+  justify-content:space-between;
+  cursor:pointer;
 }
 
-input {
-  width: 100%;
-  padding: 8px;
-  border-radius: 8px;
-  border: none;
-  margin-bottom: 6px;
+.workout-body{
+  overflow:hidden;
+  max-height:0;
+  transition:max-height .3s ease;
 }
 
-.row {
-  display: flex;
-  gap: 6px;
-  align-items: center;
+.workout.open .workout-body{max-height:1000px;}
+
+.exercise{margin-top:6px;font-size:14px;}
+.set{margin-left:10px;color:#aaa;font-size:13px;}
+
+button{
+  width:100%;
+  border:none;
+  padding:10px;
+  margin-top:6px;
+  border-radius:10px;
+  background:var(--accent);
+  color:#fff;
 }
 
-.row input { flex: 1; }
+button.secondary{background:#333;}
+button.danger{background:var(--danger);}
 
-.small {
-  width: 36px;
-  height: 36px;
-  padding: 0;
+.fab{
+  position:fixed;
+  right:16px;
+  bottom:16px;
+  width:56px;
+  height:56px;
+  border-radius:50%;
+  font-size:28px;
 }
+
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.7);
+  display:none;
+  justify-content:center;
+  align-items:center;
+}
+.modal.open{display:flex;}
+
+.modal-content{
+  background:#121212;
+  width:100%;
+  max-width:420px;
+  max-height:90vh;
+  overflow:auto;
+  padding:14px;
+  border-radius:16px;
+}
+
+input{
+  width:100%;
+  padding:8px;
+  margin-bottom:6px;
+  border:none;
+  border-radius:8px;
+}
+
+.row{display:flex;gap:6px;}
+.row input{flex:1;}
+.small{width:36px;padding:0;}
 </style>
 </head>
 
 <body>
+<header>Дневник тренировок</header>
 
-<header>Тренировки</header>
+<div id="calendar">
+  <button onclick="prevMonth()">‹</button>
+  <div id="monthLabel"></div>
+  <button onclick="nextMonth()">›</button>
+</div>
+<div id="days"></div>
 
 <div id="content"></div>
 
-<button class="fab" id="addBtn">+</button>
+<button class="fab" onclick="openModal()">+</button>
 
 <div class="modal" id="modal">
   <div class="modal-content">
-    <h3 id="modalTitle">Новая тренировка</h3>
-
+    <h3 id="modalTitle">Тренировка</h3>
     <input type="date" id="date">
-
     <div id="exercises"></div>
-
     <button onclick="addExercise()">Добавить упражнение</button>
-
-    <button id="saveBtn">Сохранить</button>
+    <button onclick="saveWorkout()">Сохранить</button>
     <button class="secondary" onclick="closeModal()">Отмена</button>
   </div>
 </div>
 
 <script>
-const API = 'https://ula-conductorial-vagrantly.ngrok-free.dev';
-const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 505375162;
+Telegram.WebApp.ready();
 
-let workouts = [];
-let editingId = null;
+const API =
+'https://ula-conductorial-vagrantly.ngrok-free.dev?ngrok-skip-browser-warning=1';
 
-/* ===== LOAD ===== */
-async function loadWorkouts() {
-  const res = await fetch(`${API}/workouts/${telegramId}`);
-  workouts = await res.json();
+const telegramId = Telegram.WebApp.initDataUnsafe.user.id;
+
+let workouts=[], editingId=null;
+let cur=new Date(), selected=null;
+
+/* ---------- LOAD ---------- */
+async function load(){
+  const r=await fetch(`${API}/workouts/${telegramId}`);
+  workouts=await r.json();
+  drawCalendar();
   render();
 }
+load();
 
-function render() {
-  const box = document.getElementById('content');
-  box.innerHTML = '';
+/* ---------- CALENDAR ---------- */
+function drawCalendar(){
+  const y=cur.getFullYear(), m=cur.getMonth();
+  monthLabel.innerText=cur.toLocaleString('ru',{month:'long',year:'numeric'});
+  days.innerHTML='';
+  const d=new Date(y,m,1);
+  for(let i=0;i<d.getDay();i++) days.appendChild(document.createElement('div'));
+  while(d.getMonth()===m){
+    const ds=d.toISOString().slice(0,10);
+    const el=document.createElement('div');
+    el.className='day';
+    el.innerText=d.getDate();
+    if(workouts.some(w=>w.workout_date===ds)) el.classList.add('has');
+    if(ds===selected) el.classList.add('active');
+    el.onclick=()=>{selected=ds;render();};
+    days.appendChild(el);
+    d.setDate(d.getDate()+1);
+  }
+}
+function prevMonth(){cur.setMonth(cur.getMonth()-1);drawCalendar();}
+function nextMonth(){cur.setMonth(cur.getMonth()+1);drawCalendar();}
 
-  workouts.forEach(w => {
-    const d = document.createElement('div');
-    d.className = 'workout';
-    d.innerHTML = `<b>${w.workout_date}</b>`;
+/* ---------- RENDER ---------- */
+function render(){
+  content.innerHTML='';
+  workouts
+   .filter(w=>!selected||w.workout_date===selected)
+   .forEach(w=>{
+    const box=document.createElement('div');
+    box.className='workout';
+    box.innerHTML=`
+      <div class="workout-header">
+        <b>${w.workout_date}</b>
+        <span>▼</span>
+      </div>
+      <div class="workout-body"></div>`;
+    box.querySelector('.workout-header').onclick=
+      ()=>box.classList.toggle('open');
 
-    w.info.exercises.forEach(e => {
-      const ex = document.createElement('div');
-      ex.className = 'exercise';
-      ex.innerHTML = `<div><b>${e.name}</b></div>`;
-      e.sets.forEach(s => {
-        const st = document.createElement('div');
-        st.className = 'set';
-        st.innerText = `${s.weight} кг × ${s.reps}`;
+    const body=box.querySelector('.workout-body');
+    w.info.exercises.forEach(e=>{
+      const ex=document.createElement('div');
+      ex.className='exercise';
+      ex.innerHTML=`<b>${e.name}</b>`;
+      e.sets.forEach(s=>{
+        const st=document.createElement('div');
+        st.className='set';
+        st.innerText=`${s.weight} кг × ${s.reps}`;
         ex.appendChild(st);
       });
-      d.appendChild(ex);
+      body.appendChild(ex);
     });
 
-    const edit = document.createElement('button');
-    edit.innerText = 'Редактировать';
-    edit.onclick = () => openModal(w);
-
-    const del = document.createElement('button');
-    del.innerText = 'Удалить';
-    del.className = 'danger';
-    del.onclick = () => deleteWorkout(w.id);
-
-    d.appendChild(edit);
-    d.appendChild(del);
-
-    box.appendChild(d);
+    body.appendChild(btn('Редактировать',()=>openModal(w)));
+    body.appendChild(btn('Удалить',()=>del(w.id),'danger'));
+    content.appendChild(box);
   });
 }
 
-/* ===== MODAL ===== */
-document.getElementById('addBtn').onclick = () => openModal();
-
-function openModal(w=null) {
-  editingId = w?.id || null;
-  document.getElementById('modalTitle').innerText =
-    editingId ? 'Редактирование' : 'Новая тренировка';
-
-  document.getElementById('date').value = w?.workout_date || '';
-  document.getElementById('exercises').innerHTML = '';
-
-  w?.info.exercises.forEach(addExerciseFromData);
-
-  document.getElementById('modal').classList.add('open');
+/* ---------- MODAL ---------- */
+function openModal(w=null){
+  editingId=w?.id||null;
+  modal.classList.add('open');
+  date.value=w?.workout_date||'';
+  exercises.innerHTML='';
+  w?.info.exercises.forEach(addExerciseData);
 }
+function closeModal(){modal.classList.remove('open');}
 
-function closeModal() {
-  document.getElementById('modal').classList.remove('open');
+/* ---------- EXERCISES ---------- */
+function addExercise(){
+  addExerciseData({name:'',sets:[]});
 }
-
-/* ===== EXERCISES ===== */
-function addExerciseFromData(e) {
-  const wrap = document.createElement('div');
-  wrap.innerHTML = `<input value="${e.name}">`;
-  e.sets.forEach(s => addSet(wrap, s));
-  wrap.appendChild(btn('Добавить подход', () => addSet(wrap)));
-  document.getElementById('exercises').appendChild(wrap);
+function addExerciseData(e){
+  const d=document.createElement('div');
+  d.innerHTML=`<input value="${e.name}">`;
+  e.sets.forEach(s=>addSet(d,s));
+  d.appendChild(btn('Добавить подход',()=>addSet(d)));
+  exercises.appendChild(d);
 }
-
-function addExercise() {
-  addExerciseFromData({ name:'', sets:[] });
-}
-
-function addSet(wrap, s={}) {
-  const r = document.createElement('div');
-  r.className = 'row';
-  r.innerHTML = `
+function addSet(w,s={}){
+  const r=document.createElement('div');
+  r.className='row';
+  r.innerHTML=`
     <input placeholder="кг" value="${s.weight||''}">
-    <input placeholder="повт" value="${s.reps||''}">
-  `;
-  r.appendChild(btn('×', ()=>r.remove(),'small danger'));
-  wrap.insertBefore(r, wrap.lastChild);
+    <input placeholder="повт" value="${s.reps||''}">`;
+  r.appendChild(btn('×',()=>r.remove(),'small danger'));
+  w.insertBefore(r,w.lastChild);
 }
 
-/* ===== SAVE ===== */
-document.getElementById('saveBtn').onclick = async () => {
-  const date = document.getElementById('date').value;
-  if (!date) return alert('Выбери дату');
-
-  const exercises = [];
-  document.querySelectorAll('#exercises > div').forEach(ex => {
-    const name = ex.querySelector('input').value;
-    const sets = [];
-    ex.querySelectorAll('.row').forEach(r => {
-      const i = r.querySelectorAll('input');
-      sets.push({ weight:+i[0].value, reps:+i[1].value });
+/* ---------- SAVE ---------- */
+async function saveWorkout(){
+  const ex=[];
+  document.querySelectorAll('#exercises>div').forEach(d=>{
+    const name=d.querySelector('input').value;
+    const sets=[];
+    d.querySelectorAll('.row').forEach(r=>{
+      const i=r.querySelectorAll('input');
+      sets.push({weight:+i[0].value,reps:+i[1].value});
     });
-    if (name && sets.length) exercises.push({ name, sets });
+    if(name&&sets.length) ex.push({name,sets});
   });
 
-  const payload = { workout_date: date, info:{exercises} };
-  const url = editingId
-    ? `${API}/workouts/${editingId}`
-    : `${API}/workouts/${telegramId}`;
-
-  await fetch(url, {
-    method: editingId ? 'PUT' : 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+  const body={workout_date:date.value,info:{exercises:ex}};
+  const url=editingId?`${API}/workouts/${editingId}`:`${API}/workouts/${telegramId}`;
+  await fetch(url,{
+    method:editingId?'PUT':'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
   });
-
-  closeModal();
-  loadWorkouts();
-};
-
-async function deleteWorkout(id) {
-  if (!confirm('Удалить тренировку?')) return;
-  await fetch(`${API}/workouts/${id}`, { method:'DELETE' });
-  loadWorkouts();
+  closeModal(); load();
 }
 
-function btn(t,fn,cls='') {
-  const b=document.createElement('button');
-  b.innerText=t;b.className=cls;b.onclick=fn;return b;
+async function del(id){
+  if(!confirm('Удалить тренировку?'))return;
+  await fetch(`${API}/workouts/${id}`,{method:'DELETE'});
+  load();
 }
 
-loadWorkouts();
+function btn(t,f,c=''){const b=document.createElement('button');b.innerText=t;b.className=c;b.onclick=f;return b;}
 </script>
 </body>
 </html>
