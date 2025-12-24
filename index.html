@@ -24,35 +24,32 @@ body {
   padding: 12px;
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont;
+  font-family: system-ui, -apple-system;
 }
 
 header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
-h1 {
-  font-size: 20px;
+header h1 {
   margin: 0;
+  font-size: 20px;
 }
 
 button {
-  background: var(--accent);
-  color: white;
   border: none;
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 10px;
   font-size: 14px;
+  background: var(--accent);
+  color: white;
 }
 
 button.danger { background: var(--danger); }
-button.ghost {
-  background: transparent;
-  color: var(--muted);
-}
+button.ghost { background: transparent; color: var(--muted); }
 
 .card {
   background: var(--card);
@@ -73,20 +70,28 @@ button.ghost {
   cursor: pointer;
 }
 
-.exercise {
-  margin-top: 8px;
-}
+.exercise { margin-top: 8px; }
 
 .set {
-  font-size: 14px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.set span {
+  font-size: 13px;
   color: var(--muted);
-  margin-left: 8px;
+}
+
+.set button {
+  padding: 4px 8px;
+  font-size: 12px;
 }
 
 input {
   width: 100%;
-  margin-top: 6px;
-  padding: 10px;
+  padding: 8px;
   border-radius: 8px;
   border: none;
   font-size: 14px;
@@ -101,6 +106,7 @@ input {
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 10;
 }
 
 .modal-content {
@@ -125,7 +131,8 @@ hr {
 
 <header>
   <h1>🏋️ Тренировки</h1>
-  <button onclick="openEditor()">➕ Добавить</button>
+  <input type="date" id="calendar" onchange="render()" />
+  <button onclick="openEditor()">➕ Добавить тренировку</button>
 </header>
 
 <div id="workouts"></div>
@@ -133,7 +140,7 @@ hr {
 <!-- ===== MODAL ===== -->
 <div id="modal" class="modal hidden">
   <div class="modal-content">
-    <h2 id="modal-title">Тренировка</h2>
+    <h2>Тренировка</h2>
 
     <input type="date" id="workout-date" />
 
@@ -150,16 +157,15 @@ hr {
 
 <script>
 const API = "https://ula-conductorial-vagrantly.ngrok-free.dev";
-const tg = window.Telegram?.WebApp;
-const telegramId = tg?.initDataUnsafe?.user?.id || 505375162;
+const telegramId = Telegram?.WebApp?.initDataUnsafe?.user?.id || 505375162;
 
 let workouts = [];
 let editingId = null;
 
 async function loadWorkouts() {
-  const res = await fetch(`${API}/workouts/${telegramId}?ngrok-skip-browser-warning=1`, {
-    headers: { "ngrok-skip-browser-warning": "true" }
-  });
+  const res = await fetch(`${API}/workouts/${telegramId}?ngrok-skip-browser-warning=1`,
+    { headers: { "ngrok-skip-browser-warning": "true" } }
+  );
   workouts = await res.json();
   render();
 }
@@ -168,39 +174,49 @@ function render() {
   const root = document.getElementById("workouts");
   root.innerHTML = "";
 
-  workouts.forEach(w => {
-    const card = document.createElement("div");
-    card.className = "card";
+  const selectedDate = document.getElementById("calendar").value;
 
-    const body = document.createElement("div");
-    body.className = "hidden";
+  workouts
+    .filter(w => !selectedDate || w.workout_date === selectedDate)
+    .forEach(w => {
+      const card = document.createElement("div");
+      card.className = "card";
 
-    body.innerHTML = w.info.exercises.map(ex => `
-      <div class="exercise">
-        <strong>${ex.name}</strong>
-        ${ex.sets.map(s => `<div class="set">${s.weight} кг × ${s.reps}</div>`).join("")}
-      </div>
-    `).join("");
+      const body = document.createElement("div");
+      body.className = "hidden";
 
-    card.innerHTML = `
-      <div class="workout-header">
-        <strong>${w.workout_date}</strong>
-        <span>▼</span>
-      </div>
-    `;
+      body.innerHTML = w.info.exercises.map(ex => `
+        <div class="exercise">
+          <strong>${ex.name}</strong>
+          ${ex.sets.map(s => `
+            <div class="set">
+              <span>Вес:</span> ${s.weight} кг
+              <span>×</span>
+              <span>Повт:</span> ${s.reps}
+            </div>
+          `).join("")}
+        </div>
+      `).join("");
 
-    card.querySelector(".workout-header").onclick = () =>
-      body.classList.toggle("hidden");
+      card.innerHTML = `
+        <div class="workout-header">
+          <strong>${w.workout_date}</strong>
+          <span>▼</span>
+        </div>
+      `;
 
-    const controls = document.createElement("div");
-    controls.innerHTML = `
-      <button onclick="editWorkout(${w.id})">✏️ Редактировать</button>
-      <button class="danger" onclick="deleteWorkout(${w.id})">🗑 Удалить</button>
-    `;
+      card.querySelector(".workout-header").onclick = () =>
+        body.classList.toggle("hidden");
 
-    card.append(body, controls);
-    root.append(card);
-  });
+      const controls = document.createElement("div");
+      controls.innerHTML = `
+        <button onclick="editWorkout(${w.id})">✏️ Редактировать</button>
+        <button class="danger" onclick="deleteWorkout(${w.id})">🗑 Удалить</button>
+      `;
+
+      card.append(body, controls);
+      root.append(card);
+    });
 }
 
 function openEditor(workout = null) {
@@ -216,6 +232,7 @@ function openEditor(workout = null) {
 
 function closeEditor() {
   document.getElementById("modal").classList.add("hidden");
+  editingId = null;
 }
 
 function addExerciseFromData(ex) {
@@ -232,7 +249,7 @@ function createExercise() {
   const div = document.createElement("div");
   div.className = "card";
   div.innerHTML = `
-    <input class="name" placeholder="Упражнение" />
+    <input class="name" placeholder="Название упражнения" />
     <div class="sets"></div>
     <button onclick="addSet(this.parentNode)">➕ Подход</button>
   `;
@@ -241,9 +258,11 @@ function createExercise() {
 
 function addSet(exDiv, data = {}) {
   const s = document.createElement("div");
+  s.className = "set";
   s.innerHTML = `
-    <input type="number" placeholder="Вес" value="${data.weight||""}">
+    <input type="number" placeholder="Вес (кг)" value="${data.weight||""}">
     <input type="number" placeholder="Повторы" value="${data.reps||""}">
+    <button class="danger" onclick="this.parentNode.remove()">❌</button>
   `;
   exDiv.querySelector(".sets").append(s);
 }
@@ -252,7 +271,7 @@ async function saveWorkout() {
   const info = {
     exercises: [...document.querySelectorAll("#exercises .card")].map(ex => ({
       name: ex.querySelector(".name").value,
-      sets: [...ex.querySelectorAll(".sets div")].map(s => ({
+      sets: [...ex.querySelectorAll(".set")].map(s => ({
         weight: +s.children[0].value,
         reps: +s.children[1].value
       }))
