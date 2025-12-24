@@ -6,173 +6,128 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
-body { font-family: Arial; padding: 16px; }
-button { margin: 4px; }
-.workout { border: 1px solid #ccc; padding: 8px; margin: 6px 0; }
+body {
+  font-family: system-ui;
+  background: #f5f5f5;
+  margin: 0;
+  padding: 16px;
+}
+.card {
+  background: #fff;
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+}
+button {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  background: #2a8cff;
+  color: white;
+}
+button.danger { background: #e74c3c; }
 .modal {
-    position: fixed; inset: 0; background: rgba(0,0,0,.4);
-    display: none; align-items: center; justify-content: center;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.4);
+  display: none;
+  align-items: center;
+  justify-content: center;
 }
 .modal-content {
-    background: #fff; padding: 16px; width: 300px;
+  background: white;
+  padding: 16px;
+  width: 90%;
+  max-width: 320px;
+  border-radius: 12px;
 }
-.set { display: flex; gap: 4px; margin-bottom: 4px; }
+input {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 6px;
+}
 </style>
 </head>
+
 <body>
 
 <h3>👤 Telegram ID</h3>
-<div id="userId"></div>
+<div class="card" id="uid"></div>
 
-<button onclick="openAddModal()">➕ Добавить тренировку</button>
+<button onclick="openModal()">➕ Добавить тренировку</button>
 
-<h3>📜 История тренировок</h3>
+<h3>📜 История</h3>
 <div id="history"></div>
 
-<!-- МОДАЛЬНОЕ ОКНО -->
+<!-- MODAL -->
 <div class="modal" id="modal">
-<div class="modal-content">
-    <h4 id="modalTitle"></h4>
-
-    <input id="exercise" placeholder="Упражнение"><br><br>
-
-    <div id="sets"></div>
-    <button onclick="addSet()">➕ Подход</button><br><br>
-
-    <button onclick="saveWorkout()">💾 Сохранить</button>
-    <button onclick="closeModal()">❌ Отмена</button>
-</div>
+  <div class="modal-content">
+    <h4>Новая тренировка</h4>
+    <input id="exercise" placeholder="Упражнение">
+    <input id="weight" type="number" placeholder="Вес (кг)">
+    <input id="reps" type="number" placeholder="Повторы">
+    <button onclick="saveWorkout()">Сохранить</button>
+    <button onclick="closeModal()">Отмена</button>
+  </div>
 </div>
 
 <script>
 const tg = Telegram.WebApp;
 tg.ready();
 
-const API_URL = "https://ula-conductorial-vagrantly.ngrok-free.dev";
-const userId = tg.initDataUnsafe.user.id;
-document.getElementById("userId").innerText = userId;
+const API = "https://ula-conductorial-vagrantly.ngrok-free.dev";
+const telegramId = tg.initDataUnsafe.user.id;
+document.getElementById("uid").innerText = telegramId;
 
-let currentWorkoutId = null;
-let sets = [];
-
-function safeParse(json) {
-    try { return JSON.parse(json); } catch { return null; }
+function openModal() {
+  document.getElementById("modal").style.display = "flex";
 }
-
-function openAddModal() {
-    currentWorkoutId = null;
-    sets = [];
-    document.getElementById("exercise").value = "";
-    document.getElementById("sets").innerHTML = "";
-    addSet();
-    showModal("Новая тренировка");
-}
-
-function openEditModal(workout) {
-    currentWorkoutId = workout.id;
-    const info = safeParse(workout.info);
-    if (!info) return;
-
-    sets = info.sets || [];
-    document.getElementById("exercise").value = info.exercise;
-    document.getElementById("sets").innerHTML = "";
-    sets.forEach((s, i) => addSet(s.weight, s.reps, i));
-    showModal("Редактирование");
-}
-
-function showModal(title) {
-    document.getElementById("modalTitle").innerText = title;
-    document.getElementById("modal").style.display = "flex";
-}
-
 function closeModal() {
-    document.getElementById("modal").style.display = "none";
-}
-
-function addSet(weight="", reps="", index=null) {
-    if (index === null) {
-        index = sets.length;
-        sets.push({weight, reps});
-    }
-    const div = document.createElement("div");
-    div.className = "set";
-    div.innerHTML = `
-        <input type="number" value="${weight}" placeholder="кг"
-            onchange="sets[${index}].weight=this.value">
-        <input type="number" value="${reps}" placeholder="раз"
-            onchange="sets[${index}].reps=this.value">
-        <button onclick="removeSet(${index}, this)">❌</button>
-    `;
-    document.getElementById("sets").appendChild(div);
-}
-
-function removeSet(index, btn) {
-    sets[index] = null;
-    btn.parentElement.remove();
+  document.getElementById("modal").style.display = "none";
 }
 
 async function saveWorkout() {
-    const exercise = document.getElementById("exercise").value;
-    const payload = {
-        exercise,
-        sets: sets.filter(Boolean)
-    };
+  const payload = {
+    exercise: exercise.value,
+    sets: [{ weight: weight.value, reps: reps.value }]
+  };
 
-    const body = {
-        workout_type_id: 1,
-        workout_date: new Date().toISOString(),
-        info: JSON.stringify(payload)
-    };
+  await fetch(`${API}/workouts/${telegramId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ info: JSON.stringify(payload) })
+  });
 
-    if (currentWorkoutId) {
-        await fetch(`${API_URL}/workouts/${currentWorkoutId}`, {
-            method: "PUT",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify(body)
-        });
-    } else {
-        await fetch(`${API_URL}/workouts/${userId}`, {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify(body)
-        });
-    }
-
-    closeModal();
-    loadHistory();
+  closeModal();
+  loadHistory();
 }
 
 async function deleteWorkout(id) {
-    await fetch(`${API_URL}/workouts/${id}`, { method: "DELETE" });
-    loadHistory();
+  await fetch(`${API}/workouts/${id}`, { method: "DELETE" });
+  loadHistory();
 }
 
 async function loadHistory() {
-    const res = await fetch(`${API_URL}/workouts/${userId}`);
-    const data = await res.json();
-    const history = document.getElementById("history");
-    history.innerHTML = "";
+  const res = await fetch(`${API}/workouts/${telegramId}`);
+  const data = await res.json();
 
-    data.forEach(w => {
-        const info = safeParse(w.info);
-        if (!info) return;
+  const root = document.getElementById("history");
+  root.innerHTML = "";
 
-        const div = document.createElement("div");
-        div.className = "workout";
-        div.innerHTML = `
-            <b>${info.exercise}</b><br>
-            ${info.sets.map(s => `${s.weight}кг × ${s.reps}`).join("<br>")}
-            <br>
-            <button onclick='openEditModal(${JSON.stringify(w)})'>✏️</button>
-            <button onclick='deleteWorkout(${w.id})'>🗑</button>
-        `;
-        history.appendChild(div);
-    });
+  data.forEach(w => {
+    const info = JSON.parse(w.info);
+    root.innerHTML += `
+      <div class="card">
+        <b>${info.exercise}</b><br>
+        ${info.sets[0].weight} кг × ${info.sets[0].reps}
+        <br><br>
+        <button class="danger" onclick="deleteWorkout(${w.id})">Удалить</button>
+      </div>
+    `;
+  });
 }
 
 loadHistory();
 </script>
-
 </body>
 </html>
-    
