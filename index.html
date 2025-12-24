@@ -8,72 +8,76 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
+:root {
+  --bg: #0f172a;
+  --card: #020617;
+  --accent: #2563eb;
+  --danger: #dc2626;
+  --muted: #334155;
+}
+
+* { box-sizing: border-box; }
+
 body {
   margin: 0;
   padding: 14px;
   font-family: system-ui;
-  background: #0f172a;
+  background: var(--bg);
   color: #e5e7eb;
 }
 
-h1 { margin-bottom: 10px; }
+h1 { margin-bottom: 12px; }
 
 /* ===== CALENDAR ===== */
 #calendar {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 6px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .day {
   padding: 8px 0;
   text-align: center;
   border-radius: 8px;
-  background: #020617;
+  background: var(--card);
   opacity: .4;
+  cursor: pointer;
+  transition: .2s;
 }
 
 .day.active {
-  background: #2563eb;
+  background: var(--accent);
   opacity: 1;
   font-weight: bold;
 }
 
-/* ===== BUTTONS ===== */
-button {
-  border: none;
-  border-radius: 10px;
-  padding: 8px 10px;
-  background: #2563eb;
-  color: white;
-}
-
-.secondary { background: #334155; }
-.danger { background: #dc2626; }
-
-/* ===== INPUTS ===== */
-input {
-  width: 100%;
-  padding: 8px;
-  margin-top: 6px;
-  border-radius: 8px;
-  border: none;
-}
-
-/* ===== BLOCKS ===== */
-.block {
-  background: #020617;
-  border-radius: 14px;
-  padding: 12px;
-  margin-bottom: 10px;
+.day.selected {
+  outline: 2px solid white;
 }
 
 /* ===== WORKOUT CARD ===== */
+.workout {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
+  animation: fadeUp .25s ease;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
 .workout-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.actions button {
+  margin-left: 6px;
 }
 
 /* ===== EXERCISES ===== */
@@ -87,11 +91,29 @@ input {
   display: grid;
   grid-template-columns: 1fr 1fr auto;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
-.set input {
-  text-align: center;
+/* ===== BUTTONS ===== */
+button {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+}
+
+.secondary { background: var(--muted); }
+.danger { background: var(--danger); }
+
+/* ===== INPUTS ===== */
+input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: none;
+  margin-top: 6px;
 }
 
 /* ===== FAB ===== */
@@ -103,7 +125,7 @@ input {
   height: 56px;
   border-radius: 50%;
   font-size: 28px;
-  background: #2563eb;
+  background: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -120,8 +142,18 @@ input {
   z-index: 1000;
 }
 
+#modal.show {
+  display: flex;
+  animation: fadeIn .2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 #modalContent {
-  background: #020617;
+  background: var(--card);
   width: 100%;
   max-width: 420px;
   max-height: 90vh;
@@ -137,17 +169,18 @@ input {
 <h1>🏋️ Тренировки</h1>
 
 <div id="calendar"></div>
+<button class="secondary" onclick="clearFilter()">Показать все</button>
+
 <div id="workouts"></div>
 
 <button id="fab" onclick="openAdd()">+</button>
 
-<!-- ===== MODAL ===== -->
+<!-- MODAL -->
 <div id="modal">
   <div id="modalContent">
-    <h3>Тренировка</h3>
+    <h3 id="modalTitle">Тренировка</h3>
 
     <input type="date" id="workoutDate">
-
     <div id="modalExercises"></div>
 
     <button onclick="addExercise()">➕ Упражнение</button><br><br>
@@ -162,6 +195,8 @@ const API = "https://ula-conductorial-vagrantly.ngrok-free.dev";
 const telegramId = Telegram?.WebApp?.initDataUnsafe?.user?.id || 505375162;
 
 let workouts = [];
+let filterDate = null;
+let editingId = null;
 
 /* ===== LOAD ===== */
 async function loadWorkouts() {
@@ -169,22 +204,34 @@ async function loadWorkouts() {
     headers: { "ngrok-skip-browser-warning": "true" }
   });
   workouts = await r.json();
-  render();
   renderCalendar();
+  render();
 }
 
 /* ===== CALENDAR ===== */
 function renderCalendar() {
   const cal = document.getElementById("calendar");
   cal.innerHTML = "";
-  const days = [...new Set(workouts.map(w => w.workout_date))];
 
-  days.forEach(d => {
+  const dates = [...new Set(workouts.map(w => w.workout_date))];
+
+  dates.forEach(d => {
     const el = document.createElement("div");
-    el.className = "day active";
+    el.className = "day active" + (filterDate === d ? " selected" : "");
     el.textContent = d.slice(8,10);
+    el.onclick = () => {
+      filterDate = d;
+      renderCalendar();
+      render();
+    };
     cal.append(el);
   });
+}
+
+function clearFilter() {
+  filterDate = null;
+  renderCalendar();
+  render();
 }
 
 /* ===== RENDER ===== */
@@ -192,59 +239,92 @@ function render() {
   const root = document.getElementById("workouts");
   root.innerHTML = "";
 
-  workouts.forEach(w => {
-    const c = document.createElement("div");
-    c.className = "block";
-    c.innerHTML = `
-      <div class="workout-header">
-        <strong>${w.workout_date}</strong>
-        <button class="danger" onclick="del(${w.id})">🗑</button>
-      </div>
-    `;
+  workouts
+    .filter(w => !filterDate || w.workout_date === filterDate)
+    .forEach(w => {
+      const c = document.createElement("div");
+      c.className = "workout";
 
-    w.info.exercises.forEach(ex => {
-      const e = document.createElement("div");
-      e.className = "exercise";
-      e.innerHTML = `<strong>${ex.name}</strong>`;
-      ex.sets.forEach(s => {
-        e.innerHTML += `<div>${s.weight} кг × ${s.reps}</div>`;
+      c.innerHTML = `
+        <div class="workout-header">
+          <strong>${w.workout_date}</strong>
+          <div class="actions">
+            <button onclick="openEdit(${w.id})">✏️</button>
+            <button class="danger" onclick="del(${w.id})">🗑</button>
+          </div>
+        </div>
+      `;
+
+      w.info.exercises.forEach(ex => {
+        const e = document.createElement("div");
+        e.className = "exercise";
+        e.innerHTML = `<strong>${ex.name}</strong>`;
+        ex.sets.forEach(s => {
+          e.innerHTML += `<div>${s.weight} кг × ${s.reps}</div>`;
+        });
+        c.append(e);
       });
-      c.append(e);
-    });
 
-    root.append(c);
-  });
+      root.append(c);
+    });
 }
 
 /* ===== MODAL ===== */
 function openAdd() {
-  document.getElementById("modal").style.display = "flex";
+  editingId = null;
+  document.getElementById("modalTitle").innerText = "Новая тренировка";
+  openModal();
+}
+
+function openEdit(id) {
+  editingId = id;
+  const w = workouts.find(x => x.id === id);
+
+  document.getElementById("modalTitle").innerText = "Редактирование";
+  document.getElementById("workoutDate").value = w.workout_date;
   document.getElementById("modalExercises").innerHTML = "";
-  document.getElementById("workoutDate").value =
-    new Date().toISOString().slice(0,10);
+
+  w.info.exercises.forEach(ex => {
+    addExercise(ex);
+  });
+
+  openModal();
+}
+
+function openModal() {
+  document.getElementById("modal").classList.add("show");
+  if (!editingId) {
+    document.getElementById("workoutDate").value =
+      new Date().toISOString().slice(0,10);
+    document.getElementById("modalExercises").innerHTML = "";
+  }
 }
 
 function closeModal() {
-  document.getElementById("modal").style.display = "none";
+  document.getElementById("modal").classList.remove("show");
 }
 
-function addExercise() {
+function addExercise(data = null) {
   const e = document.createElement("div");
-  e.className = "block";
+  e.className = "exercise";
   e.innerHTML = `
-    <input placeholder="Упражнение" class="ex-name">
+    <input class="ex-name" placeholder="Упражнение" value="${data?.name || ""}">
     <div class="sets"></div>
     <button onclick="addSet(this)">➕ Подход</button>
   `;
   document.getElementById("modalExercises").append(e);
+
+  if (data) {
+    data.sets.forEach(s => addSet(e.querySelector("button"), s));
+  }
 }
 
-function addSet(btn) {
+function addSet(btn, data = null) {
   const s = document.createElement("div");
   s.className = "set";
   s.innerHTML = `
-    <input type="number" placeholder="Вес">
-    <input type="number" placeholder="Повт.">
+    <input type="number" placeholder="Вес" value="${data?.weight || ""}">
+    <input type="number" placeholder="Повт." value="${data?.reps || ""}">
     <button class="danger" onclick="this.parentNode.remove()">✕</button>
   `;
   btn.previousElementSibling.append(s);
@@ -252,7 +332,7 @@ function addSet(btn) {
 
 /* ===== SAVE ===== */
 async function saveWorkout() {
-  const exercises = [...document.querySelectorAll("#modalExercises .block")].map(ex => ({
+  const exercises = [...document.querySelectorAll("#modalExercises .exercise")].map(ex => ({
     name: ex.querySelector(".ex-name").value,
     sets: [...ex.querySelectorAll(".set")].map(s => ({
       weight: +s.children[0].value,
@@ -260,22 +340,31 @@ async function saveWorkout() {
     }))
   }));
 
-  await fetch(`${API}/workouts/${telegramId}`, {
-    method: "POST",
+  const payload = {
+    workout_date: document.getElementById("workoutDate").value,
+    info: { exercises }
+  };
+
+  const url = editingId
+    ? `${API}/workouts/${editingId}`
+    : `${API}/workouts/${telegramId}`;
+
+  const method = editingId ? "PUT" : "POST";
+
+  await fetch(url, {
+    method,
     headers: {
       "Content-Type": "application/json",
       "ngrok-skip-browser-warning": "true"
     },
-    body: JSON.stringify({
-      workout_date: document.getElementById("workoutDate").value,
-      info: { exercises }
-    })
+    body: JSON.stringify(payload)
   });
 
   closeModal();
   loadWorkouts();
 }
 
+/* ===== DELETE ===== */
 async function del(id) {
   await fetch(`${API}/workouts/${id}`, {
     method: "DELETE",
