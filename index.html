@@ -12,64 +12,53 @@
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
-  background: #f4f4f4;
+  background: #f2f2f2;
   padding: 10px;
 }
-
-h2 { margin: 8px 0; }
 
 button {
   width: 100%;
   padding: 10px;
-  margin-top: 6px;
+  border-radius: 12px;
   border: none;
-  border-radius: 10px;
   font-size: 15px;
+  margin-top: 6px;
 }
 
-.primary { background: #2a8cff; color: white; }
-.secondary { background: #888; color: white; }
-.danger { background: #e74c3c; color: white; }
+.primary { background:#2a8cff; color:#fff; }
+.secondary { background:#888; color:#fff; }
+.danger { background:#e74c3c; color:#fff; }
 
 .card {
-  background: white;
-  padding: 12px;
-  border-radius: 14px;
-  margin-bottom: 10px;
+  background:#fff;
+  border-radius:14px;
+  padding:12px;
+  margin-bottom:10px;
 }
 
 input {
-  width: 100%;
-  padding: 8px;
-  margin-bottom: 6px;
-  font-size: 15px;
+  width:100%;
+  padding:8px;
+  margin-bottom:6px;
+  font-size:15px;
 }
 
 .row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  display:flex;
+  gap:6px;
+  align-items:center;
 }
 
-.row input {
-  flex: 1;
-}
-
+.row input { flex:1; }
 .row button {
-  flex: 0 0 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: 8px;
-  font-size: 16px;
+  flex:0 0 36px;
+  height:36px;
+  padding:0;
 }
 
-.hidden { display: none; }
-
-.exercise {
-  border-top: 1px solid #ddd;
-  padding-top: 8px;
-  margin-top: 8px;
-}
+.hidden { display:none; }
+.exercise { border-top:1px solid #ddd; margin-top:8px; padding-top:8px; }
+.small { font-size:13px; color:#555; }
 </style>
 </head>
 
@@ -82,7 +71,7 @@ input {
 
 <div id="editorView" class="hidden">
   <div class="card">
-    <h2>Тренировка</h2>
+    <h3>Тренировка</h3>
     <div id="exercises"></div>
     <button class="secondary" onclick="addExercise()">➕ Упражнение</button>
     <button class="primary" onclick="saveWorkout()">💾 Сохранить</button>
@@ -91,168 +80,157 @@ input {
 </div>
 
 <script>
-/* ========== CONFIG ========== */
-const API_URL = "https://ula-conductorial-vagrantly.ngrok-free.dev"; // ← ЗАМЕНИ
+const API_URL = "https://YOUR_BACKEND_URL";
 const tg = Telegram.WebApp;
 tg.ready();
 
 const telegramId = tg.initDataUnsafe.user.id;
 
-/* ========== STATE ========== */
 let workouts = [];
 let currentWorkoutId = null;
 let exercisesData = [];
 
-/* ========== VIEW CONTROL ========== */
-function openEditor(workout = null) {
+/* ---------- VIEW ---------- */
+function openEditor(workout=null){
   listView.classList.add("hidden");
   editorView.classList.remove("hidden");
-
-  exercises.innerHTML = "";
-  exercisesData = [];
+  exercises.innerHTML="";
+  exercisesData=[];
   currentWorkoutId = workout?.id ?? null;
 
-  if (workout) {
-    workout.info.exercises.forEach(e => addExercise(e));
-  } else {
-    addExercise();
-  }
+  if(workout){
+    workout.info.exercises.forEach(e=>addExercise(e));
+  } else addExercise();
 }
 
-function closeEditor() {
+function closeEditor(){
   editorView.classList.add("hidden");
   listView.classList.remove("hidden");
 }
 
-/* ========== EXERCISES ========== */
-function addExercise(data = { name: "", sets: [] }) {
-  const ex = { name: data.name, sets: [...data.sets] };
+/* ---------- EXERCISES ---------- */
+function addExercise(data={name:"",sets:[]}) {
+  const ex = { name:data.name, sets:[...data.sets] };
   exercisesData.push(ex);
 
-  const card = document.createElement("div");
-  card.className = "exercise";
+  const block = document.createElement("div");
+  block.className="exercise";
 
-  const nameInput = document.createElement("input");
-  nameInput.placeholder = "Название упражнения";
-  nameInput.value = ex.name;
-  nameInput.oninput = e => ex.name = e.target.value;
+  const name = document.createElement("input");
+  name.placeholder="Название упражнения";
+  name.value=ex.name;
+  name.oninput=e=>ex.name=e.target.value;
 
   const setsDiv = document.createElement("div");
 
   const addSetBtn = document.createElement("button");
-  addSetBtn.className = "secondary";
-  addSetBtn.innerText = "➕ Подход";
-  addSetBtn.onclick = () => addSet(ex, setsDiv);
+  addSetBtn.className="secondary";
+  addSetBtn.innerText="➕ Подход";
+  addSetBtn.onclick=()=>addSet(ex,setsDiv);
 
-  card.append(nameInput, setsDiv, addSetBtn);
-  exercises.appendChild(card);
+  block.append(name,setsDiv,addSetBtn);
+  exercises.appendChild(block);
 
-  ex.sets.forEach(s => addSet(ex, setsDiv, s));
+  ex.sets.forEach(s=>addSet(ex,setsDiv,s));
 }
 
-function addSet(ex, container, data = { weight: 0, reps: 0 }) {
-  const set = { ...data };
+function addSet(ex,container,data={weight:0,reps:0}) {
+  const set={...data};
   ex.sets.push(set);
 
-  const row = document.createElement("div");
-  row.className = "row";
+  const row=document.createElement("div");
+  row.className="row";
 
-  const w = document.createElement("input");
-  w.type = "number";
-  w.placeholder = "кг";
-  w.value = set.weight;
-  w.oninput = e => set.weight = +e.target.value;
+  const w=document.createElement("input");
+  w.type="number"; w.placeholder="кг"; w.value=set.weight;
+  w.oninput=e=>set.weight=+e.target.value;
 
-  const r = document.createElement("input");
-  r.type = "number";
-  r.placeholder = "раз";
-  r.value = set.reps;
-  r.oninput = e => set.reps = +e.target.value;
+  const r=document.createElement("input");
+  r.type="number"; r.placeholder="раз"; r.value=set.reps;
+  r.oninput=e=>set.reps=+e.target.value;
 
-  const del = document.createElement("button");
-  del.className = "danger";
-  del.innerText = "✖";
-  del.title = "Удалить подход";
-  del.onclick = () => {
-    ex.sets = ex.sets.filter(s => s !== set);
+  const del=document.createElement("button");
+  del.className="danger"; del.innerText="✖";
+  del.onclick=()=>{
+    ex.sets=ex.sets.filter(s=>s!==set);
     row.remove();
   };
 
-  row.append(w, r, del);
+  row.append(w,r,del);
   container.appendChild(row);
 }
 
-/* ========== SAVE / DELETE ========== */
-async function saveWorkout() {
-  const payload = {
-    workout_date: new Date().toISOString(),
-    info: {
-      exercises: exercisesData
-        .filter(e => e.name && e.sets.length)
-        .map(e => ({
-          name: e.name,
-          sets: e.sets.filter(s => s.weight > 0 && s.reps > 0)
+/* ---------- SAVE ---------- */
+async function saveWorkout(){
+  const payload={
+    workout_date:new Date().toISOString(),
+    info:{
+      exercises:exercisesData
+        .filter(e=>e.name && e.sets.length)
+        .map(e=>({
+          name:e.name,
+          sets:e.sets.filter(s=>s.weight>0 && s.reps>0)
         }))
     }
   };
 
-  if (!payload.info.exercises.length) {
+  if(!payload.info.exercises.length){
     alert("Добавь упражнение");
     return;
   }
 
-  const url = currentWorkoutId
+  const url=currentWorkoutId
     ? `${API_URL}/workouts/${currentWorkoutId}`
     : `${API_URL}/workouts/${telegramId}`;
 
-  await fetch(url, {
-    method: currentWorkoutId ? "PUT" : "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+  await fetch(url,{
+    method:currentWorkoutId?"PUT":"POST",
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
   });
 
   closeEditor();
   loadHistory();
 }
 
-async function deleteWorkout(id) {
-  if (!confirm("Удалить тренировку?")) return;
-  await fetch(`${API_URL}/workouts/${id}`, { method: "DELETE" });
-  loadHistory();
-}
+/* ---------- HISTORY ---------- */
+async function loadHistory(){
+  const r=await fetch(`${API_URL}/workouts/${telegramId}`);
+  workouts=await r.json();
 
-/* ========== HISTORY ========== */
-async function loadHistory() {
-  const r = await fetch(`${API_URL}/workouts/${telegramId}`);
-  workouts = await r.json();
+  history.innerHTML="";
 
-  history.innerHTML = "";
+  workouts.forEach(w=>{
+    if(!w.info || !w.info.exercises) return;
 
-  workouts.forEach(w => {
-    const card = document.createElement("div");
-    card.className = "card";
+    const card=document.createElement("div");
+    card.className="card";
 
-    card.innerHTML = `
-      <b>${new Date(w.workout_date).toLocaleDateString()}</b><br><br>
-      ${w.info.exercises.map(e => `
-        ${e.name}: ${e.sets.map(s => `${s.weight}×${s.reps}`).join(", ")}
-      `).join("<br>")}
-      <br><br>
+    card.innerHTML=`
+      <b>${new Date(w.workout_date).toLocaleDateString()}</b>
+      <div class="small">
+        ${w.info.exercises.map(e=>`
+          ${e.name}: ${e.sets.map(s=>`${s.weight}×${s.reps}`).join(", ")}
+        `).join("<br>")}
+      </div>
       <button class="secondary">✏️ Редактировать</button>
       <button class="danger">🗑 Удалить</button>
     `;
 
-    card.children[card.children.length - 2].onclick = () => openEditor(w);
-    card.children[card.children.length - 1].onclick = () => deleteWorkout(w.id);
+    card.children[2].onclick=()=>openEditor(w);
+    card.children[3].onclick=()=>deleteWorkout(w.id);
 
     history.appendChild(card);
   });
 }
 
+async function deleteWorkout(id){
+  if(!confirm("Удалить тренировку?")) return;
+  await fetch(`${API_URL}/workouts/${id}`,{method:"DELETE"});
+  loadHistory();
+}
+
 loadHistory();
 </script>
-
 </body>
 </html>
-
-
