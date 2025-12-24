@@ -47,10 +47,21 @@ input {
 
 .row {
   display: flex;
+  align-items: center;
   gap: 6px;
 }
 
-.row input { flex: 1; }
+.row input {
+  flex: 1;
+}
+
+.row button {
+  flex: 0 0 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 16px;
+}
 
 .hidden { display: none; }
 
@@ -161,6 +172,7 @@ function addSet(ex, container, data = { weight: 0, reps: 0 }) {
   const del = document.createElement("button");
   del.className = "danger";
   del.innerText = "✖";
+  del.title = "Удалить подход";
   del.onclick = () => {
     ex.sets = ex.sets.filter(s => s !== set);
     row.remove();
@@ -242,4 +254,5 @@ loadHistory();
 
 </body>
 </html>
+
 
