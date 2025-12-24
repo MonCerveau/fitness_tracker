@@ -11,12 +11,12 @@
 body {
   margin: 0;
   padding: 12px;
-  font-family: system-ui, -apple-system;
+  font-family: system-ui;
   background: #0f172a;
   color: #e5e7eb;
 }
 
-h1 { margin: 0 0 10px; }
+h1 { margin-bottom: 12px; }
 
 button {
   padding: 10px;
@@ -24,11 +24,10 @@ button {
   border: none;
   background: #2563eb;
   color: white;
-  font-size: 14px;
 }
 
-button.danger { background: #dc2626; }
-button.secondary { background: #334155; }
+.secondary { background: #334155; }
+.danger { background: #dc2626; }
 
 input {
   width: 100%;
@@ -36,7 +35,6 @@ input {
   margin-top: 6px;
   border-radius: 8px;
   border: none;
-  font-size: 14px;
 }
 
 .card {
@@ -57,17 +55,10 @@ input {
 .set {
   display: flex;
   gap: 6px;
-  align-items: center;
   margin-top: 6px;
 }
 
-.set input {
-  width: 45%;
-}
-
-.set button {
-  padding: 6px;
-}
+.set input { width: 45%; }
 
 /* ===== MODAL ===== */
 #modal {
@@ -102,20 +93,21 @@ input {
 
 <div id="workouts"></div>
 
-<!-- ===== MODAL ===== -->
+<!-- ===== MODAL ONLY ===== -->
 <div id="modal">
   <div id="modalContent">
-    <h3>Добавить тренировку</h3>
 
+    <h3>Добавить тренировку</h3>
     <input type="date" id="workoutDate">
 
-    <div id="exercises"></div>
+    <div id="modalExercises"></div>
 
     <button onclick="addExercise()">➕ Упражнение</button>
     <br><br>
 
     <button onclick="saveWorkout()">💾 Сохранить</button>
     <button class="secondary" onclick="closeModal()">Отмена</button>
+
   </div>
 </div>
 
@@ -124,57 +116,50 @@ const API = "https://ula-conductorial-vagrantly.ngrok-free.dev";
 const telegramId = Telegram?.WebApp?.initDataUnsafe?.user?.id || 505375162;
 
 let workouts = [];
-let editingId = null;
 
 function openModal() {
   document.getElementById("modal").style.display = "flex";
-  document.getElementById("exercises").innerHTML = "";
+  document.getElementById("modalExercises").innerHTML = "";
   document.getElementById("workoutDate").value =
     new Date().toISOString().slice(0,10);
-  editingId = null;
 }
 
 function closeModal() {
   document.getElementById("modal").style.display = "none";
 }
 
-function addExercise(data) {
+function addExercise() {
   const div = document.createElement("div");
   div.className = "card";
   div.innerHTML = `
-    <input placeholder="Название упражнения" class="ex-name">
+    <input class="ex-name" placeholder="Упражнение">
     <div class="sets"></div>
     <button onclick="addSet(this.parentNode)">➕ Подход</button>
   `;
-  document.getElementById("exercises").append(div);
-
-  if (data) {
-    div.querySelector(".ex-name").value = data.name;
-    data.sets.forEach(s => addSet(div, s));
-  }
+  document.getElementById("modalExercises").append(div);
 }
 
-function addSet(exDiv, data={}) {
+function addSet(exDiv) {
   const s = document.createElement("div");
   s.className = "set";
   s.innerHTML = `
-    <input type="number" placeholder="Вес" value="${data.weight||""}">
-    <input type="number" placeholder="Повторы" value="${data.reps||""}">
+    <input type="number" placeholder="Вес">
+    <input type="number" placeholder="Повторы">
     <button class="danger" onclick="this.parentNode.remove()">✖</button>
   `;
   exDiv.querySelector(".sets").append(s);
 }
 
 async function saveWorkout() {
-  const info = {
-    exercises: [...document.querySelectorAll(".card")].map(ex => ({
-      name: ex.querySelector(".ex-name").value,
-      sets: [...ex.querySelectorAll(".set")].map(s => ({
-        weight: +s.children[0].value,
-        reps: +s.children[1].value
-      }))
+  const exercises = [...document.querySelectorAll("#modalExercises .card")].map(ex => ({
+    name: ex.querySelector(".ex-name").value,
+    sets: [...ex.querySelectorAll(".set")].map(s => ({
+      weight: +s.children[0].value,
+      reps: +s.children[1].value
     }))
-  };
+  }));
+
+  if (!exercises.length) return alert("Добавь хотя бы одно упражнение");
 
   await fetch(`${API}/workouts/${telegramId}?ngrok-skip-browser-warning=1`, {
     method: "POST",
@@ -184,7 +169,7 @@ async function saveWorkout() {
     },
     body: JSON.stringify({
       workout_date: document.getElementById("workoutDate").value,
-      info
+      info: { exercises }
     })
   });
 
@@ -211,15 +196,10 @@ function render() {
 
     const body = document.createElement("div");
     body.style.display = "none";
-
     body.innerHTML = w.info.exercises.map(ex => `
       <div class="exercise">
         <strong>${ex.name}</strong>
-        ${ex.sets.map(s => `
-          <div class="set">
-            ${s.weight} кг × ${s.reps}
-          </div>
-        `).join("")}
+        ${ex.sets.map(s => `<div>${s.weight} кг × ${s.reps}</div>`).join("")}
       </div>
     `).join("");
 
@@ -230,9 +210,8 @@ function render() {
       </div>
     `;
 
-    card.querySelector(".workout-header").onclick = () => {
+    card.querySelector(".workout-header").onclick = () =>
       body.style.display = body.style.display === "none" ? "block" : "none";
-    };
 
     card.append(body);
     root.append(card);
