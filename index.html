@@ -10,13 +10,13 @@
 <style>
 body {
   margin: 0;
-  padding: 12px;
+  padding: 14px;
   font-family: system-ui;
   background: #0f172a;
   color: #e5e7eb;
 }
 
-h1 { margin-bottom: 10px; }
+h1 { margin-bottom: 12px; }
 
 button {
   border: none;
@@ -37,38 +37,33 @@ input {
   border: none;
 }
 
-.card {
+/* ===== BLOCKS ===== */
+.block {
   background: #020617;
   border-radius: 14px;
   padding: 12px;
   margin-bottom: 10px;
 }
 
+/* ===== WORKOUT CARD ===== */
 .workout-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.exercise { margin-top: 8px; }
+/* ===== EXERCISES ===== */
+.exercise {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #1e293b;
+}
 
-/* ===== CALENDAR ===== */
-#calendar {
+.set {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: 1fr 1fr auto;
   gap: 6px;
-  margin-bottom: 14px;
-}
-
-.day {
-  text-align: center;
-  padding: 8px 0;
-  border-radius: 8px;
-  background: #020617;
-}
-
-.day.active {
-  background: #2563eb;
+  margin-top: 6px;
 }
 
 /* ===== FAB ===== */
@@ -110,8 +105,6 @@ input {
 
 <h1>🏋️ Тренировки</h1>
 
-<div id="calendar"></div>
-
 <div id="workouts"></div>
 
 <button id="fab" onclick="openAdd()">＋</button>
@@ -119,7 +112,8 @@ input {
 <!-- ===== MODAL ===== -->
 <div id="modal">
   <div id="modalContent">
-    <h3 id="modalTitle">Тренировка</h3>
+    <h3>Тренировка</h3>
+
     <input type="date" id="workoutDate">
 
     <div id="modalExercises"></div>
@@ -138,21 +132,44 @@ const telegramId = Telegram?.WebApp?.initDataUnsafe?.user?.id || 505375162;
 let workouts = [];
 let editingId = null;
 
-/* ===== CALENDAR ===== */
-function renderCalendar() {
-  const cal = document.getElementById("calendar");
-  cal.innerHTML = "";
+/* ===== LOAD ===== */
+async function loadWorkouts() {
+  const r = await fetch(`${API}/workouts/${telegramId}`);
+  workouts = await r.json();
+  render();
+}
 
-  const days = [...new Set(workouts.map(w => w.workout_date))];
+function render() {
+  const root = document.getElementById("workouts");
+  root.innerHTML = "";
 
-  for (let i = 1; i <= 31; i++) {
-    const d = document.createElement("div");
-    d.className = "day";
-    const day = String(i).padStart(2, "0");
-    if (days.some(x => x.endsWith("-" + day))) d.classList.add("active");
-    d.textContent = i;
-    cal.append(d);
-  }
+  workouts.forEach(w => {
+    const c = document.createElement("div");
+    c.className = "block";
+    c.innerHTML = `
+      <div class="workout-header">
+        <strong>${w.workout_date}</strong>
+        <div>
+          <button onclick='openEdit(${JSON.stringify(w)})'>✏️</button>
+          <button class="danger" onclick="del(${w.id})">🗑</button>
+        </div>
+      </div>
+    `;
+
+    w.info.exercises.forEach(ex => {
+      const e = document.createElement("div");
+      e.className = "exercise";
+      e.innerHTML = `<strong>${ex.name}</strong>`;
+      ex.sets.forEach(s => {
+        const p = document.createElement("div");
+        p.textContent = `${s.weight} кг × ${s.reps}`;
+        e.append(p);
+      });
+      c.append(e);
+    });
+
+    root.append(c);
+  });
 }
 
 /* ===== MODAL ===== */
@@ -164,41 +181,37 @@ function openAdd() {
     new Date().toISOString().slice(0,10);
 }
 
-function openEdit(w) {
-  editingId = w.id;
-  document.getElementById("modal").style.display = "flex";
-  document.getElementById("workoutDate").value = w.workout_date;
-  document.getElementById("modalExercises").innerHTML = "";
-
-  w.info.exercises.forEach(ex => {
-    const div = document.createElement("div");
-    div.className = "card";
-    div.innerHTML = `<input class="ex-name" value="${ex.name}"><div class="sets"></div>`;
-    ex.sets.forEach(s => {
-      const set = document.createElement("div");
-      set.innerHTML = `<input value="${s.weight}"><input value="${s.reps}">`;
-      div.querySelector(".sets").append(set);
-    });
-    document.getElementById("modalExercises").append(div);
-  });
-}
-
 function closeModal() {
   document.getElementById("modal").style.display = "none";
 }
 
 function addExercise() {
-  const d = document.createElement("div");
-  d.className = "card";
-  d.innerHTML = `<input class="ex-name"><div class="sets"></div>`;
-  document.getElementById("modalExercises").append(d);
+  const e = document.createElement("div");
+  e.className = "block";
+  e.innerHTML = `
+    <input placeholder="Название упражнения" class="ex-name">
+    <div class="sets"></div>
+    <button onclick="addSet(this)">➕ Подход</button>
+  `;
+  document.getElementById("modalExercises").append(e);
+}
+
+function addSet(btn) {
+  const s = document.createElement("div");
+  s.className = "set";
+  s.innerHTML = `
+    <input placeholder="Вес">
+    <input placeholder="Повторы">
+    <button class="danger" onclick="this.parentNode.remove()">✕</button>
+  `;
+  btn.previousElementSibling.append(s);
 }
 
 /* ===== SAVE ===== */
 async function saveWorkout() {
-  const exercises = [...document.querySelectorAll(".card")].map(ex => ({
+  const exercises = [...document.querySelectorAll("#modalExercises .block")].map(ex => ({
     name: ex.querySelector(".ex-name").value,
-    sets: [...ex.querySelectorAll(".sets div")].map(s => ({
+    sets: [...ex.querySelectorAll(".set")].map(s => ({
       weight: +s.children[0].value,
       reps: +s.children[1].value
     }))
@@ -209,56 +222,20 @@ async function saveWorkout() {
     info: { exercises }
   };
 
-  if (editingId) {
-    await fetch(`${API}/workouts/${editingId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-  } else {
-    await fetch(`${API}/workouts/${telegramId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-  }
+  await fetch(`${API}/workouts/${telegramId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
 
   closeModal();
   loadWorkouts();
 }
 
-/* ===== DELETE ===== */
 async function del(id) {
   if (!confirm("Удалить тренировку?")) return;
   await fetch(`${API}/workouts/${id}`, { method: "DELETE" });
   loadWorkouts();
-}
-
-/* ===== LOAD ===== */
-async function loadWorkouts() {
-  const r = await fetch(`${API}/workouts/${telegramId}`);
-  workouts = await r.json();
-  render();
-  renderCalendar();
-}
-
-function render() {
-  const root = document.getElementById("workouts");
-  root.innerHTML = "";
-  workouts.forEach(w => {
-    const c = document.createElement("div");
-    c.className = "card";
-    c.innerHTML = `
-      <div class="workout-header">
-        <strong>${w.workout_date}</strong>
-        <div>
-          <button onclick='openEdit(${JSON.stringify(w)})'>✏️</button>
-          <button class="danger" onclick="del(${w.id})">🗑</button>
-        </div>
-      </div>
-    `;
-    root.append(c);
-  });
 }
 
 loadWorkouts();
