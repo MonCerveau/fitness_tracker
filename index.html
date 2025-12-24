@@ -2,144 +2,82 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Дневник тренировок</title>
+<title>Workout Diary</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
 <style>
-body { font-family: system-ui; background:#f4f4f4; padding:16px; }
-.card { background:#fff; padding:12px; border-radius:12px; margin-bottom:10px; }
-button { padding:8px 12px; border-radius:8px; border:none; background:#2a8cff; color:white; }
-button.danger { background:#e74c3c; }
-button.secondary { background:#888; }
-.modal {
-  position:fixed; inset:0; background:rgba(0,0,0,.4);
-  display:none; align-items:center; justify-content:center;
-}
-.modal-content {
-  background:#fff; padding:16px; border-radius:12px; width:300px;
-}
-input { width:100%; margin-bottom:8px; padding:6px; }
-.set { display:flex; gap:4px; margin-bottom:4px; }
+body { font-family: system-ui; background:#f2f2f2; padding:12px }
+.card { background:#fff; padding:12px; border-radius:10px; margin-bottom:10px }
+button { padding:6px 10px; border:none; border-radius:6px; }
+.primary { background:#2a8cff; color:#fff }
+.danger { background:#e74c3c; color:#fff }
+input { width:100%; margin:4px 0 }
+.set { display:flex; gap:4px }
 </style>
 </head>
 
 <body>
 
-<h3>👤 Telegram ID</h3>
-<div id="uid"></div>
+<h3 id="uid"></h3>
+<button class="primary" id="addBtn">➕ Добавить</button>
 
-<button onclick="openAdd()">➕ Добавить тренировку</button>
-
-<h3>📜 История</h3>
 <div id="history"></div>
 
-<!-- MODAL -->
-<div class="modal" id="modal">
-  <div class="modal-content">
-    <h4 id="modalTitle"></h4>
-    <input id="exercise" placeholder="Упражнение">
-    <div id="sets"></div>
-    <button class="secondary" onclick="addSet()">➕ Подход</button><br><br>
-    <button onclick="saveWorkout()">💾 Сохранить</button>
-    <button class="secondary" onclick="closeModal()">❌ Отмена</button>
-  </div>
-</div>
-
 <script>
+const API = "https://ula-conductorial-vagrantly.ngrok-free.dev";
 const tg = Telegram.WebApp;
 tg.ready();
 
 const telegramId = tg.initDataUnsafe.user.id;
-document.getElementById("uid").innerText = telegramId;
+document.getElementById("uid").innerText = `ID: ${telegramId}`;
 
-const API = "https://ula-conductorial-vagrantly.ngrok-free.dev";
+async function loadHistory() {
+  const r = await fetch(`${API}/workouts/${telegramId}`);
+  const data = await r.json();
+  history.innerHTML = "";
 
-let currentWorkoutId = null;
-let sets = [];
-
-function safeParse(s){ try{return JSON.parse(s)}catch{return null} }
-
-function openAdd(){
-  currentWorkoutId=null;
-  sets=[];
-  exercise.value="";
-  setsDiv.innerHTML="";
-  addSet();
-  showModal("Новая тренировка");
-}
-function openEdit(w){
-  currentWorkoutId=w.id;
-  const info=safeParse(w.info);
-  exercise.value=info.exercise;
-  sets=info.sets||[];
-  setsDiv.innerHTML="";
-  sets.forEach(s=>addSet(s.weight,s.reps));
-  showModal("Редактирование");
-}
-function showModal(t){ modalTitle.innerText=t; modal.style.display="flex"; }
-function closeModal(){ modal.style.display="none"; }
-
-function addSet(weight="",reps=""){
-  const i=sets.length;
-  sets.push({weight,reps});
-  const d=document.createElement("div");
-  d.className="set";
-  d.innerHTML=`
-    <input type="number" placeholder="кг" value="${weight}" onchange="sets[${i}].weight=this.value">
-    <input type="number" placeholder="раз" value="${reps}" onchange="sets[${i}].reps=this.value">
-    <button class="danger" onclick="this.parentElement.remove()">✖</button>
-  `;
-  setsDiv.appendChild(d);
-}
-
-async function saveWorkout(){
-  const body={
-    workout_date:new Date().toISOString(),
-    info:JSON.stringify({exercise:exercise.value,sets})
-  };
-
-  if(currentWorkoutId){
-    await fetch(`${API}/workouts/${currentWorkoutId}`,{
-      method:"PUT",
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(body)
-    });
-  }else{
-    await fetch(`${API}/workouts/${telegramId}`,{
-      method:"POST",
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(body)
-    });
-  }
-  closeModal();
-  loadHistory();
-}
-
-async function deleteWorkout(id){
-  await fetch(`${API}/workouts/${id}`,{method:"DELETE"});
-  loadHistory();
-}
-
-async function loadHistory(){
-  const r=await fetch(`${API}/workouts/${telegramId}`);
-  const data=await r.json();
-  history.innerHTML="";
-  data.forEach(w=>{
-    const info=safeParse(w.info);
-    if(!info)return;
-    history.innerHTML+=`
-      <div class="card">
-        <b>${info.exercise}</b><br>
-        ${info.sets.map(s=>`${s.weight}кг × ${s.reps}`).join("<br>")}
-        <br>
-        <button onclick='openEdit(${JSON.stringify(w)})'>✏️</button>
-        <button class="danger" onclick='deleteWorkout(${w.id})'>🗑</button>
-      </div>`;
+  data.forEach(w => {
+    const { exercise, sets } = w.info;
+    const div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML = `
+      <b>${exercise}</b><br>
+      ${sets.map(s => `${s.weight}кг × ${s.reps}`).join("<br>")}
+      <br><br>
+      <button class="danger">Удалить</button>
+    `;
+    div.querySelector("button").onclick = async () => {
+      await fetch(`${API}/workouts/${w.id}`, { method:"DELETE" });
+      loadHistory();
+    };
+    history.appendChild(div);
   });
 }
 
+document.getElementById("addBtn").onclick = async () => {
+  const exercise = prompt("Название упражнения");
+  if (!exercise) return;
+
+  const sets = [];
+  while (true) {
+    const weight = prompt("Вес (отмена — закончить)");
+    if (!weight) break;
+    const reps = prompt("Повторы");
+    sets.push({ weight:Number(weight), reps:Number(reps) });
+  }
+
+  await fetch(`${API}/workouts/${telegramId}`, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      workout_date:new Date().toISOString(),
+      info:{ exercise, sets }
+    })
+  });
+
+  loadHistory();
+};
+
 loadHistory();
 </script>
-
 </body>
 </html>
