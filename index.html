@@ -3,66 +3,91 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Step 2</title>
+<title>Step 2 Debug</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
 <style>
-body { font-family: system-ui; padding: 16px; background:#f2f2f2; }
-.card {
-  background:#fff;
-  border-radius:12px;
-  padding:12px;
-  margin-bottom:10px;
+body {
+  font-family: system-ui;
+  background: #f2f2f2;
+  padding: 16px;
 }
-.exercise { font-weight:600; margin-top:6px; }
-.set { font-size:14px; margin-left:12px; }
-.err { color:red; }
+.box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.ok { color: green; }
+.err { color: red; }
+.code {
+  background: #111;
+  color: #0f0;
+  padding: 10px;
+  font-family: monospace;
+  font-size: 12px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+}
 </style>
 </head>
 <body>
 
-<h2>Step 2 — История</h2>
-<div id="app">Загрузка...</div>
+<h3>🧪 Step 2 — Диагностика API</h3>
+
+<div class="box" id="tgBox">Telegram: ...</div>
+<div class="box" id="urlBox">URL: ...</div>
+<div class="box" id="statusBox">Статус: ...</div>
+<div class="box">
+  <b>Ответ сервера:</b>
+  <div class="code" id="responseBox">...</div>
+</div>
 
 <script>
-const API = "https://ula-conductorial-vagrantly.ngrok-free.dev";
-const app = document.getElementById("app");
+const tgBox = document.getElementById("tgBox");
+const urlBox = document.getElementById("urlBox");
+const statusBox = document.getElementById("statusBox");
+const responseBox = document.getElementById("responseBox");
 
-const tg = Telegram.WebApp;
-const telegramId = tg.initDataUnsafe?.user?.id;
+/* ===== TELEGRAM ===== */
+if (!window.Telegram || !Telegram.WebApp) {
+  tgBox.innerHTML = "<span class='err'>❌ Telegram WebApp API не найден</span>";
+  throw new Error("No Telegram");
+}
+
+const telegramId = Telegram.WebApp.initDataUnsafe?.user?.id;
 
 if (!telegramId) {
-  app.innerHTML = "<div class='err'>Telegram ID не найден</div>";
+  tgBox.innerHTML = "<span class='err'>❌ Telegram ID не передан</span>";
   throw new Error("No telegram id");
 }
 
-fetch(`${API}/workouts/${telegramId}`)
-  .then(r => r.json())
-  .then(data => {
-    if (!Array.isArray(data) || data.length === 0) {
-      app.innerHTML = "Тренировок нет";
-      return;
-    }
+tgBox.innerHTML = `<span class='ok'>✅ Telegram ID:</span> ${telegramId}`;
 
-    app.innerHTML = "";
-    data.forEach(w => {
-      const card = document.createElement("div");
-      card.className = "card";
+/* ===== API ===== */
+const API_URL = "https://ula-conductorial-vagrantly.ngrok-free.dev"; // ← ОБЯЗАТЕЛЬНО ЗАМЕНИ
+const fullUrl = `${API_URL}/workouts/${telegramId}`;
 
-      card.innerHTML = `<b>📅 ${w.workout_date}</b>`;
+urlBox.innerHTML = `<b>GET:</b> ${fullUrl}`;
 
-      w.info.exercises.forEach(ex => {
-        card.innerHTML += `<div class="exercise">${ex.name}</div>`;
-        ex.sets.forEach(s => {
-          card.innerHTML += `<div class="set">${s.weight} кг × ${s.reps}</div>`;
-        });
-      });
-
-      app.appendChild(card);
-    });
+/* ===== FETCH ===== */
+fetch(fullUrl)
+  .then(r => {
+    statusBox.innerHTML = `<b>HTTP статус:</b> ${r.status}`;
+    return r.text().then(t => ({ status: r.status, text: t }));
   })
-  .catch(e => {
-    app.innerHTML = "<div class='err'>Ошибка загрузки</div>";
-    console.error(e);
+  .then(({ status, text }) => {
+    responseBox.textContent = text;
+
+    if (status !== 200) {
+      statusBox.innerHTML += " ❌";
+    } else {
+      statusBox.innerHTML += " ✅";
+    }
+  })
+  .catch(err => {
+    statusBox.innerHTML = "<span class='err'>❌ fetch не выполнился</span>";
+    responseBox.textContent = err.message;
   });
 </script>
 
