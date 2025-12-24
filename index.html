@@ -1,36 +1,48 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <title>Дневник тренировок</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>
-        body { font-family: Arial; padding: 16px; }
-        input, button { margin: 4px 0; }
-        .set { margin-left: 12px; }
-        .workout { border: 1px solid #ccc; padding: 8px; margin-top: 8px; }
-    </style>
+<meta charset="UTF-8">
+<title>Дневник тренировок</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<style>
+body { font-family: Arial; padding: 16px; }
+button { margin: 4px; }
+.workout { border: 1px solid #ccc; padding: 8px; margin: 6px 0; }
+.modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4);
+    display: none; align-items: center; justify-content: center;
+}
+.modal-content {
+    background: #fff; padding: 16px; width: 300px;
+}
+.set { display: flex; gap: 4px; margin-bottom: 4px; }
+</style>
 </head>
 <body>
 
 <h3>👤 Telegram ID</h3>
-<div id="userId">—</div>
+<div id="userId"></div>
 
-<hr>
-
-<h3>➕ Новая тренировка</h3>
-
-<input id="exercise" placeholder="Название упражнения"><br>
-
-<div id="sets"></div>
-<button onclick="addSet()">➕ Добавить подход</button><br><br>
-
-<button onclick="saveWorkout()">💾 Сохранить тренировку</button>
-
-<hr>
+<button onclick="openAddModal()">➕ Добавить тренировку</button>
 
 <h3>📜 История тренировок</h3>
 <div id="history"></div>
+
+<!-- МОДАЛЬНОЕ ОКНО -->
+<div class="modal" id="modal">
+<div class="modal-content">
+    <h4 id="modalTitle"></h4>
+
+    <input id="exercise" placeholder="Упражнение"><br><br>
+
+    <div id="sets"></div>
+    <button onclick="addSet()">➕ Подход</button><br><br>
+
+    <button onclick="saveWorkout()">💾 Сохранить</button>
+    <button onclick="closeModal()">❌ Отмена</button>
+</div>
+</div>
 
 <script>
 const tg = Telegram.WebApp;
@@ -38,83 +50,96 @@ tg.ready();
 
 const API_URL = "https://ula-conductorial-vagrantly.ngrok-free.dev";
 const userId = tg.initDataUnsafe.user.id;
-
 document.getElementById("userId").innerText = userId;
 
+let currentWorkoutId = null;
 let sets = [];
 
-function addSet(weight = "", reps = "") {
-    const index = sets.length;
-    sets.push({ weight, reps });
+function safeParse(json) {
+    try { return JSON.parse(json); } catch { return null; }
+}
 
+function openAddModal() {
+    currentWorkoutId = null;
+    sets = [];
+    document.getElementById("exercise").value = "";
+    document.getElementById("sets").innerHTML = "";
+    addSet();
+    showModal("Новая тренировка");
+}
+
+function openEditModal(workout) {
+    currentWorkoutId = workout.id;
+    const info = safeParse(workout.info);
+    if (!info) return;
+
+    sets = info.sets || [];
+    document.getElementById("exercise").value = info.exercise;
+    document.getElementById("sets").innerHTML = "";
+    sets.forEach((s, i) => addSet(s.weight, s.reps, i));
+    showModal("Редактирование");
+}
+
+function showModal(title) {
+    document.getElementById("modalTitle").innerText = title;
+    document.getElementById("modal").style.display = "flex";
+}
+
+function closeModal() {
+    document.getElementById("modal").style.display = "none";
+}
+
+function addSet(weight="", reps="", index=null) {
+    if (index === null) {
+        index = sets.length;
+        sets.push({weight, reps});
+    }
     const div = document.createElement("div");
     div.className = "set";
-    div.id = `set-${index}`;
     div.innerHTML = `
-        Вес: <input type="number" value="${weight}" onchange="sets[${index}].weight=this.value">
-        Повторы: <input type="number" value="${reps}" onchange="sets[${index}].reps=this.value">
-        <button onclick="removeSet(${index})">❌</button>
+        <input type="number" value="${weight}" placeholder="кг"
+            onchange="sets[${index}].weight=this.value">
+        <input type="number" value="${reps}" placeholder="раз"
+            onchange="sets[${index}].reps=this.value">
+        <button onclick="removeSet(${index}, this)">❌</button>
     `;
     document.getElementById("sets").appendChild(div);
 }
 
-function removeSet(index) {
+function removeSet(index, btn) {
     sets[index] = null;
-    document.getElementById(`set-${index}`).remove();
+    btn.parentElement.remove();
 }
 
 async function saveWorkout() {
     const exercise = document.getElementById("exercise").value;
-    const filteredSets = sets.filter(s => s);
-
-    if (!exercise || filteredSets.length === 0) {
-        alert("Заполни упражнение и подходы");
-        return;
-    }
-
     const payload = {
         exercise,
-        sets: filteredSets
+        sets: sets.filter(Boolean)
     };
 
-    await fetch(`${API_URL}/workouts/${userId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            workout_type_id: 1,
-            workout_date: new Date().toISOString(),
-            info: JSON.stringify(payload)
-        })
-    });
+    const body = {
+        workout_type_id: 1,
+        workout_date: new Date().toISOString(),
+        info: JSON.stringify(payload)
+    };
 
-    document.getElementById("exercise").value = "";
-    document.getElementById("sets").innerHTML = "";
-    sets = [];
+    if (currentWorkoutId) {
+        await fetch(`${API_URL}/workouts/${currentWorkoutId}`, {
+            method: "PUT",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(body)
+        });
+    } else {
+        await fetch(`${API_URL}/workouts/${userId}`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(body)
+        });
+    }
 
+    closeModal();
     loadHistory();
-}
-
-async function loadHistory() {
-    const res = await fetch(`${API_URL}/workouts/${userId}`);
-    const data = await res.json();
-
-    const history = document.getElementById("history");
-    history.innerHTML = "";
-
-    data.forEach(w => {
-        const info = JSON.parse(w.info);
-        const div = document.createElement("div");
-        div.className = "workout";
-
-        div.innerHTML = `
-            <b>${new Date(w.workout_date).toLocaleDateString()}</b><br>
-            🏋️ ${info.exercise}<br>
-            ${info.sets.map(s => `• ${s.weight} кг × ${s.reps}`).join("<br>")}
-            <br><button onclick="deleteWorkout(${w.id})">🗑 Удалить</button>
-        `;
-
-        history.appendChild(div);
-    });
 }
 
 async function deleteWorkout(id) {
@@ -122,10 +147,32 @@ async function deleteWorkout(id) {
     loadHistory();
 }
 
-addSet();
+async function loadHistory() {
+    const res = await fetch(`${API_URL}/workouts/${userId}`);
+    const data = await res.json();
+    const history = document.getElementById("history");
+    history.innerHTML = "";
+
+    data.forEach(w => {
+        const info = safeParse(w.info);
+        if (!info) return;
+
+        const div = document.createElement("div");
+        div.className = "workout";
+        div.innerHTML = `
+            <b>${info.exercise}</b><br>
+            ${info.sets.map(s => `${s.weight}кг × ${s.reps}`).join("<br>")}
+            <br>
+            <button onclick='openEditModal(${JSON.stringify(w)})'>✏️</button>
+            <button onclick='deleteWorkout(${w.id})'>🗑</button>
+        `;
+        history.appendChild(div);
+    });
+}
+
 loadHistory();
 </script>
 
 </body>
 </html>
-
+    
