@@ -1,95 +1,225 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Step 2 Debug</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <title>Тренировки</title>
 
-<style>
-body {
-  font-family: system-ui;
-  background: #f2f2f2;
-  padding: 16px;
-}
-.box {
-  background: #fff;
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 12px;
-}
-.ok { color: green; }
-.err { color: red; }
-.code {
-  background: #111;
-  color: #0f0;
-  padding: 10px;
-  font-family: monospace;
-  font-size: 12px;
-  border-radius: 8px;
-  white-space: pre-wrap;
-}
-</style>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 12px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+
+    h1, h2 {
+      margin: 8px 0;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      border: none;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      font-size: 16px;
+    }
+
+    button.danger {
+      background: #dc2626;
+    }
+
+    .card {
+      background: #020617;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border-radius: 8px;
+      border: none;
+      font-size: 15px;
+    }
+
+    .exercise, .set {
+      margin-top: 6px;
+      padding-left: 8px;
+    }
+
+    .set {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .log {
+      background: #020617;
+      padding: 8px;
+      font-size: 12px;
+      margin-top: 10px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+    }
+  </style>
 </head>
 <body>
 
-<h3>🧪 Step 2 — Диагностика API</h3>
+<h1>🏋️ Тренировки</h1>
 
-<div class="box" id="tgBox">Telegram: ...</div>
-<div class="box" id="urlBox">URL: ...</div>
-<div class="box" id="statusBox">Статус: ...</div>
-<div class="box">
-  <b>Ответ сервера:</b>
-  <div class="code" id="responseBox">...</div>
+<div class="card">
+  <strong>Telegram ID:</strong>
+  <div id="tg-id">—</div>
 </div>
 
+<button onclick="loadWorkouts()">🔄 Загрузить тренировки</button>
+
+<div id="workouts"></div>
+
+<button onclick="addDemoWorkout()">➕ Добавить тренировку</button>
+
+<div class="log" id="log"></div>
+
 <script>
-const tgBox = document.getElementById("tgBox");
-const urlBox = document.getElementById("urlBox");
-const statusBox = document.getElementById("statusBox");
-const responseBox = document.getElementById("responseBox");
+  const API_BASE = "https://ula-conductorial-vagrantly.ngrok-free.dev";
+  const LOG = document.getElementById("log");
 
-/* ===== TELEGRAM ===== */
-if (!window.Telegram || !Telegram.WebApp) {
-  tgBox.innerHTML = "<span class='err'>❌ Telegram WebApp API не найден</span>";
-  throw new Error("No Telegram");
-}
-
-const telegramId = Telegram.WebApp.initDataUnsafe?.user?.id;
-
-if (!telegramId) {
-  tgBox.innerHTML = "<span class='err'>❌ Telegram ID не передан</span>";
-  throw new Error("No telegram id");
-}
-
-tgBox.innerHTML = `<span class='ok'>✅ Telegram ID:</span> ${telegramId}`;
-
-/* ===== API ===== */
-const API_URL = "https://ula-conductorial-vagrantly.ngrok-free.dev"; // ← ОБЯЗАТЕЛЬНО ЗАМЕНИ
-const fullUrl = `${API_URL}/workouts/${telegramId}?ngrok-skip-browser-warning=1`;
-
-urlBox.innerHTML = `<b>GET:</b> ${fullUrl}`;
-
-/* ===== FETCH ===== */
-fetch(fullUrl, {
-  headers: {
-    "ngrok-skip-browser-warning": "true"
+  function log(msg) {
+    LOG.textContent += msg + "\n";
   }
-})
-  .then(r => {
-    statusBox.innerHTML = `<b>HTTP статус:</b> ${r.status}`;
-    return r.text().then(t => ({ status: r.status, text: t }));
-  })
-  .then(({ status, text }) => {
-    responseBox.textContent = text;
-  })
-  .catch(err => {
-    responseBox.textContent = err.message;
-  });
+
+  // ===== Telegram ID =====
+  let telegramId = null;
+
+  if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+    telegramId = Telegram.WebApp.initDataUnsafe.user.id;
+  } else {
+    telegramId = 505375162; // fallback для браузера
+  }
+
+  document.getElementById("tg-id").textContent = telegramId;
+
+  // ===== Загрузка тренировок =====
+  async function loadWorkouts() {
+    log("Запрос тренировок...");
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/workouts/${telegramId}?ngrok-skip-browser-warning=1`,
+        {
+          headers: {
+            "ngrok-skip-browser-warning": "true"
+          }
+        }
+      );
+
+      log("HTTP статус: " + res.status);
+
+      const data = await res.json();
+      renderWorkouts(data);
+
+    } catch (e) {
+      log("Ошибка: " + e.message);
+    }
+  }
+
+  // ===== Рендер =====
+  function renderWorkouts(workouts) {
+    const container = document.getElementById("workouts");
+    container.innerHTML = "";
+
+    if (!workouts.length) {
+      container.innerHTML = "<p>Нет тренировок</p>";
+      return;
+    }
+
+    workouts.forEach(w => {
+      const card = document.createElement("div");
+      card.className = "card";
+
+      card.innerHTML = `
+        <h2>${w.workout_date}</h2>
+        ${w.info.exercises.map(ex => `
+          <div class="exercise">
+            <strong>${ex.name}</strong>
+            ${ex.sets.map(s => `
+              <div class="set">⚖ ${s.weight} кг × ${s.reps}</div>
+            `).join("")}
+          </div>
+        `).join("")}
+        <button class="danger" onclick="deleteWorkout(${w.id})">Удалить</button>
+      `;
+
+      container.appendChild(card);
+    });
+  }
+
+  // ===== Добавление (демо) =====
+  async function addDemoWorkout() {
+    const payload = {
+      workout_date: new Date().toISOString(),
+      info: {
+        exercises: [
+          {
+            name: "Ноги",
+            sets: [
+              { weight: 60, reps: 15 },
+              { weight: 70, reps: 10 }
+            ]
+          },
+          {
+            name: "Спина",
+            sets: [
+              { weight: 40, reps: 12 }
+            ]
+          }
+        ]
+      }
+    };
+
+    log("Добавление тренировки...");
+
+    await fetch(
+      `${API_BASE}/workouts/${telegramId}?ngrok-skip-browser-warning=1`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true"
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    loadWorkouts();
+  }
+
+  // ===== Удаление =====
+  async function deleteWorkout(id) {
+    await fetch(
+      `${API_BASE}/workouts/${id}?ngrok-skip-browser-warning=1`,
+      {
+        method: "DELETE",
+        headers: {
+          "ngrok-skip-browser-warning": "true"
+        }
+      }
+    );
+
+    loadWorkouts();
+  }
+
+  // автозагрузка
+  loadWorkouts();
 </script>
 
 </body>
 </html>
-
-
-
