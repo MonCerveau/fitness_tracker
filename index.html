@@ -1,52 +1,65 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Тренировки</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workout MiniApp</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: system-ui, sans-serif;
-      background: #f5f5f5;
-    }
-    .container {
-      padding: 12px;
-    }
-    .card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 10px;
-    }
-    .exercise {
-      margin-top: 6px;
-      font-weight: 600;
-    }
-    .set {
-      font-size: 14px;
-      margin-left: 10px;
-      color: #444;
-    }
-    button {
-      width: 100%;
-      padding: 10px;
-      border-radius: 10px;
-      border: none;
-      background: #2a8cff;
-      color: #fff;
-      font-size: 16px;
-    }
-  </style>
+<style>
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #f2f2f2;
+}
+header {
+  padding: 12px;
+  background: #2a8cff;
+  color: #fff;
+  text-align: center;
+  font-weight: 600;
+}
+.container {
+  padding: 12px;
+}
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.exercise {
+  font-weight: 600;
+  margin-top: 6px;
+}
+.set {
+  font-size: 14px;
+  margin-left: 10px;
+}
+button {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  margin-top: 8px;
+  font-size: 16px;
+}
+.primary { background: #2a8cff; color: #fff; }
+.danger { background: #ff4d4f; color: #fff; }
+.secondary { background: #e0e0e0; }
+input {
+  width: 100%;
+  padding: 8px;
+  margin-top: 6px;
+  font-size: 16px;
+}
+hr { margin: 10px 0; }
+</style>
 </head>
 
 <body>
-  <div class="container">
-    <button id="addBtn">➕ Добавить тренировку</button>
-    <div id="history"></div>
-  </div>
+<header>Тренировки</header>
+<div class="container" id="app"></div>
 
 <script>
 const tg = Telegram.WebApp;
@@ -55,64 +68,143 @@ tg.ready();
 const telegramId = tg.initDataUnsafe?.user?.id;
 const API_URL = "https://ula-conductorial-vagrantly.ngrok-free.dev";
 
-async function loadHistory() {
-  const history = document.getElementById("history");
-  history.innerHTML = "";
+/* ===== STATE ===== */
+const state = {
+  screen: "history",
+  workouts: [],
+  draft: { exercises: [] },
+  editWorkoutId: null
+};
 
+/* ===== API ===== */
+async function apiGetWorkouts() {
   const r = await fetch(`${API_URL}/workouts/${telegramId}`);
-  const data = await r.json();
-
-  data.forEach(w => {
-    const card = document.createElement("div");
-    card.className = "card";
-
-    const date = document.createElement("div");
-    date.innerText = "📅 " + w.workout_date;
-    card.appendChild(date);
-
-    w.info.exercises.forEach(ex => {
-      const exDiv = document.createElement("div");
-      exDiv.className = "exercise";
-      exDiv.innerText = ex.name;
-      card.appendChild(exDiv);
-
-      ex.sets.forEach(s => {
-        const setDiv = document.createElement("div");
-        setDiv.className = "set";
-        setDiv.innerText = `${s.weight} кг × ${s.reps}`;
-        card.appendChild(setDiv);
-      });
-    });
-
-    history.appendChild(card);
-  });
+  return r.json();
 }
 
-/* 🔑 ГЛАВНОЕ — запуск ПОСЛЕ загрузки DOM */
-document.addEventListener("DOMContentLoaded", () => {
-  loadHistory();
-});
-
-/* 🔁 Обновление после добавления (пример) */
-document.getElementById("addBtn").onclick = async () => {
-  await fetch(`${API_URL}/workouts/${telegramId}`, {
+async function apiSaveWorkout() {
+  return fetch(`${API_URL}/workouts/${telegramId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       workout_date: new Date().toISOString(),
-      info: {
-        exercises: [
-          {
-            name: "Ноги",
-            sets: [{ weight: 60, reps: 15 }]
-          }
-        ]
-      }
+      info: state.draft
     })
   });
+}
 
-  await loadHistory(); // ← ВОТ ЭТОГО РАНЬШЕ НЕ БЫЛО
-};
+async function apiDeleteWorkout(id) {
+  return fetch(`${API_URL}/workouts/${id}`, { method: "DELETE" });
+}
+
+/* ===== RENDER ===== */
+function render() {
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+
+  if (state.screen === "history") renderHistory(app);
+  if (state.screen === "form") renderForm(app);
+}
+
+function renderHistory(app) {
+  const addBtn = document.createElement("button");
+  addBtn.className = "primary";
+  addBtn.innerText = "➕ Добавить тренировку";
+  addBtn.onclick = () => {
+    state.draft = { exercises: [] };
+    state.screen = "form";
+    render();
+  };
+  app.appendChild(addBtn);
+
+  state.workouts.forEach(w => {
+    const card = document.createElement("div");
+    card.className = "card";
+
+    card.innerHTML = `<div>📅 ${w.workout_date}</div>`;
+
+    w.info.exercises.forEach(ex => {
+      card.innerHTML += `<div class="exercise">${ex.name}</div>`;
+      ex.sets.forEach(s => {
+        card.innerHTML += `<div class="set">${s.weight} кг × ${s.reps}</div>`;
+      });
+    });
+
+    const del = document.createElement("button");
+    del.className = "danger";
+    del.innerText = "🗑 Удалить";
+    del.onclick = async () => {
+      await apiDeleteWorkout(w.id);
+      await loadHistory();
+    };
+
+    card.appendChild(del);
+    app.appendChild(card);
+  });
+}
+
+function renderForm(app) {
+  const card = document.createElement("div");
+  card.className = "card";
+
+  state.draft.exercises.forEach((ex, exIdx) => {
+    card.innerHTML += `<div class="exercise">${ex.name}</div>`;
+    ex.sets.forEach(s => {
+      card.innerHTML += `<div class="set">${s.weight} кг × ${s.reps}</div>`;
+    });
+  });
+
+  const exName = document.createElement("input");
+  exName.placeholder = "Название упражнения";
+
+  const weight = document.createElement("input");
+  weight.placeholder = "Вес";
+  weight.type = "number";
+
+  const reps = document.createElement("input");
+  reps.placeholder = "Повторы";
+  reps.type = "number";
+
+  const addSet = document.createElement("button");
+  addSet.className = "secondary";
+  addSet.innerText = "Добавить подход";
+  addSet.onclick = () => {
+    let ex = state.draft.exercises.find(e => e.name === exName.value);
+    if (!ex) {
+      ex = { name: exName.value, sets: [] };
+      state.draft.exercises.push(ex);
+    }
+    ex.sets.push({ weight: +weight.value, reps: +reps.value });
+    render();
+  };
+
+  const save = document.createElement("button");
+  save.className = "primary";
+  save.innerText = "💾 Сохранить тренировку";
+  save.onclick = async () => {
+    await apiSaveWorkout();
+    state.screen = "history";
+    await loadHistory();
+  };
+
+  const cancel = document.createElement("button");
+  cancel.className = "secondary";
+  cancel.innerText = "Назад";
+  cancel.onclick = () => {
+    state.screen = "history";
+    render();
+  };
+
+  app.append(card, exName, weight, reps, addSet, save, cancel);
+}
+
+/* ===== INIT ===== */
+async function loadHistory() {
+  state.workouts = await apiGetWorkouts();
+  render();
+}
+
+loadHistory();
 </script>
 </body>
 </html>
