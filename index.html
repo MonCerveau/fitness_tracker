@@ -16,8 +16,31 @@ body {
   color: #e5e7eb;
 }
 
-h1 { margin-bottom: 12px; }
+h1 { margin-bottom: 10px; }
 
+/* ===== CALENDAR ===== */
+#calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.day {
+  padding: 8px 0;
+  text-align: center;
+  border-radius: 8px;
+  background: #020617;
+  opacity: .4;
+}
+
+.day.active {
+  background: #2563eb;
+  opacity: 1;
+  font-weight: bold;
+}
+
+/* ===== BUTTONS ===== */
 button {
   border: none;
   border-radius: 10px;
@@ -29,6 +52,7 @@ button {
 .secondary { background: #334155; }
 .danger { background: #dc2626; }
 
+/* ===== INPUTS ===== */
 input {
   width: 100%;
   padding: 8px;
@@ -62,8 +86,12 @@ input {
 .set {
   display: grid;
   grid-template-columns: 1fr 1fr auto;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.set input {
+  text-align: center;
 }
 
 /* ===== FAB ===== */
@@ -76,6 +104,9 @@ input {
   border-radius: 50%;
   font-size: 28px;
   background: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ===== MODAL ===== */
@@ -105,9 +136,10 @@ input {
 
 <h1>🏋️ Тренировки</h1>
 
+<div id="calendar"></div>
 <div id="workouts"></div>
 
-<button id="fab" onclick="openAdd()">＋</button>
+<button id="fab" onclick="openAdd()">+</button>
 
 <!-- ===== MODAL ===== -->
 <div id="modal">
@@ -130,15 +162,32 @@ const API = "https://ula-conductorial-vagrantly.ngrok-free.dev";
 const telegramId = Telegram?.WebApp?.initDataUnsafe?.user?.id || 505375162;
 
 let workouts = [];
-let editingId = null;
 
 /* ===== LOAD ===== */
 async function loadWorkouts() {
-  const r = await fetch(`${API}/workouts/${telegramId}`);
+  const r = await fetch(`${API}/workouts/${telegramId}`, {
+    headers: { "ngrok-skip-browser-warning": "true" }
+  });
   workouts = await r.json();
   render();
+  renderCalendar();
 }
 
+/* ===== CALENDAR ===== */
+function renderCalendar() {
+  const cal = document.getElementById("calendar");
+  cal.innerHTML = "";
+  const days = [...new Set(workouts.map(w => w.workout_date))];
+
+  days.forEach(d => {
+    const el = document.createElement("div");
+    el.className = "day active";
+    el.textContent = d.slice(8,10);
+    cal.append(el);
+  });
+}
+
+/* ===== RENDER ===== */
 function render() {
   const root = document.getElementById("workouts");
   root.innerHTML = "";
@@ -149,10 +198,7 @@ function render() {
     c.innerHTML = `
       <div class="workout-header">
         <strong>${w.workout_date}</strong>
-        <div>
-          <button onclick='openEdit(${JSON.stringify(w)})'>✏️</button>
-          <button class="danger" onclick="del(${w.id})">🗑</button>
-        </div>
+        <button class="danger" onclick="del(${w.id})">🗑</button>
       </div>
     `;
 
@@ -161,9 +207,7 @@ function render() {
       e.className = "exercise";
       e.innerHTML = `<strong>${ex.name}</strong>`;
       ex.sets.forEach(s => {
-        const p = document.createElement("div");
-        p.textContent = `${s.weight} кг × ${s.reps}`;
-        e.append(p);
+        e.innerHTML += `<div>${s.weight} кг × ${s.reps}</div>`;
       });
       c.append(e);
     });
@@ -174,7 +218,6 @@ function render() {
 
 /* ===== MODAL ===== */
 function openAdd() {
-  editingId = null;
   document.getElementById("modal").style.display = "flex";
   document.getElementById("modalExercises").innerHTML = "";
   document.getElementById("workoutDate").value =
@@ -189,7 +232,7 @@ function addExercise() {
   const e = document.createElement("div");
   e.className = "block";
   e.innerHTML = `
-    <input placeholder="Название упражнения" class="ex-name">
+    <input placeholder="Упражнение" class="ex-name">
     <div class="sets"></div>
     <button onclick="addSet(this)">➕ Подход</button>
   `;
@@ -200,8 +243,8 @@ function addSet(btn) {
   const s = document.createElement("div");
   s.className = "set";
   s.innerHTML = `
-    <input placeholder="Вес">
-    <input placeholder="Повторы">
+    <input type="number" placeholder="Вес">
+    <input type="number" placeholder="Повт.">
     <button class="danger" onclick="this.parentNode.remove()">✕</button>
   `;
   btn.previousElementSibling.append(s);
@@ -217,15 +260,16 @@ async function saveWorkout() {
     }))
   }));
 
-  const payload = {
-    workout_date: document.getElementById("workoutDate").value,
-    info: { exercises }
-  };
-
   await fetch(`${API}/workouts/${telegramId}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    headers: {
+      "Content-Type": "application/json",
+      "ngrok-skip-browser-warning": "true"
+    },
+    body: JSON.stringify({
+      workout_date: document.getElementById("workoutDate").value,
+      info: { exercises }
+    })
   });
 
   closeModal();
@@ -233,8 +277,10 @@ async function saveWorkout() {
 }
 
 async function del(id) {
-  if (!confirm("Удалить тренировку?")) return;
-  await fetch(`${API}/workouts/${id}`, { method: "DELETE" });
+  await fetch(`${API}/workouts/${id}`, {
+    method: "DELETE",
+    headers: { "ngrok-skip-browser-warning": "true" }
+  });
   loadWorkouts();
 }
 
