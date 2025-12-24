@@ -65,8 +65,8 @@ if (!telegramId) {
 tgBox.innerHTML = `<span class='ok'>✅ Telegram ID:</span> ${telegramId}`;
 
 /* ===== API ===== */
-const API_URL = "https://ula-conductorial-vagrantly.ngrok-free.dev?ngrok-skip-browser-warning=1"; // ← ОБЯЗАТЕЛЬНО ЗАМЕНИ
-const fullUrl = `${API_URL}/workouts/${telegramId}`;
+const API_URL = "https://ula-conductorial-vagrantly.ngrok-free.dev"; // ← ОБЯЗАТЕЛЬНО ЗАМЕНИ
+const fullUrl = `${API_URL}/workouts/${telegramId}?ngrok-skip-browser-warning=1`;
 
 urlBox.innerHTML = `<b>GET:</b> ${fullUrl}`;
 
@@ -90,5 +90,6 @@ fetch(fullUrl, {
 
 </body>
 </html>
+
 
 
