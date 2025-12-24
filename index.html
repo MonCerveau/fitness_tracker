@@ -1,237 +1,118 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Workout MiniApp</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Тренировки</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-<style>
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  font-family: system-ui, sans-serif;
-  background: #f2f2f2;
-  padding: 10px;
-}
-
-button {
-  width: 100%;
-  padding: 10px;
-  border-radius: 12px;
-  border: none;
-  font-size: 15px;
-  margin-top: 6px;
-}
-
-.primary { background:#2a8cff; color:#fff; }
-.secondary { background:#888; color:#fff; }
-.danger { background:#e74c3c; color:#fff; }
-
-.card {
-  background:#fff;
-  border-radius:14px;
-  padding:12px;
-  margin-bottom:10px;
-}
-
-input {
-  width:100%;
-  padding:8px;
-  margin-bottom:6px;
-  font-size:15px;
-}
-
-.row {
-  display:flex;
-  gap:6px;
-  align-items:center;
-}
-
-.row input { flex:1; }
-.row button {
-  flex:0 0 36px;
-  height:36px;
-  padding:0;
-}
-
-.hidden { display:none; }
-.exercise { border-top:1px solid #ddd; margin-top:8px; padding-top:8px; }
-.small { font-size:13px; color:#555; }
-</style>
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: #f5f5f5;
+    }
+    .container {
+      padding: 12px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .exercise {
+      margin-top: 6px;
+      font-weight: 600;
+    }
+    .set {
+      font-size: 14px;
+      margin-left: 10px;
+      color: #444;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      background: #2a8cff;
+      color: #fff;
+      font-size: 16px;
+    }
+  </style>
 </head>
 
 <body>
-
-<div id="listView">
-  <button class="primary" onclick="openEditor()">➕ Новая тренировка</button>
-  <div id="history"></div>
-</div>
-
-<div id="editorView" class="hidden">
-  <div class="card">
-    <h3>Тренировка</h3>
-    <div id="exercises"></div>
-    <button class="secondary" onclick="addExercise()">➕ Упражнение</button>
-    <button class="primary" onclick="saveWorkout()">💾 Сохранить</button>
-    <button onclick="closeEditor()">⬅ Назад</button>
+  <div class="container">
+    <button id="addBtn">➕ Добавить тренировку</button>
+    <div id="history"></div>
   </div>
-</div>
 
 <script>
-const API_URL = "https://ula-conductorial-vagrantly.ngrok-free.dev";
 const tg = Telegram.WebApp;
 tg.ready();
 
-const telegramId = tg.initDataUnsafe.user.id;
+const telegramId = tg.initDataUnsafe?.user?.id;
+const API_URL = "https://ula-conductorial-vagrantly.ngrok-free.dev";
 
-let workouts = [];
-let currentWorkoutId = null;
-let exercisesData = [];
+async function loadHistory() {
+  const history = document.getElementById("history");
+  history.innerHTML = "";
 
-/* ---------- VIEW ---------- */
-function openEditor(workout=null){
-  listView.classList.add("hidden");
-  editorView.classList.remove("hidden");
-  exercises.innerHTML="";
-  exercisesData=[];
-  currentWorkoutId = workout?.id ?? null;
+  const r = await fetch(`${API_URL}/workouts/${telegramId}`);
+  const data = await r.json();
 
-  if(workout){
-    workout.info.exercises.forEach(e=>addExercise(e));
-  } else addExercise();
-}
+  data.forEach(w => {
+    const card = document.createElement("div");
+    card.className = "card";
 
-function closeEditor(){
-  editorView.classList.add("hidden");
-  listView.classList.remove("hidden");
-}
+    const date = document.createElement("div");
+    date.innerText = "📅 " + w.workout_date;
+    card.appendChild(date);
 
-/* ---------- EXERCISES ---------- */
-function addExercise(data={name:"",sets:[]}) {
-  const ex = { name:data.name, sets:[...data.sets] };
-  exercisesData.push(ex);
+    w.info.exercises.forEach(ex => {
+      const exDiv = document.createElement("div");
+      exDiv.className = "exercise";
+      exDiv.innerText = ex.name;
+      card.appendChild(exDiv);
 
-  const block = document.createElement("div");
-  block.className="exercise";
-
-  const name = document.createElement("input");
-  name.placeholder="Название упражнения";
-  name.value=ex.name;
-  name.oninput=e=>ex.name=e.target.value;
-
-  const setsDiv = document.createElement("div");
-
-  const addSetBtn = document.createElement("button");
-  addSetBtn.className="secondary";
-  addSetBtn.innerText="➕ Подход";
-  addSetBtn.onclick=()=>addSet(ex,setsDiv);
-
-  block.append(name,setsDiv,addSetBtn);
-  exercises.appendChild(block);
-
-  ex.sets.forEach(s=>addSet(ex,setsDiv,s));
-}
-
-function addSet(ex,container,data={weight:0,reps:0}) {
-  const set={...data};
-  ex.sets.push(set);
-
-  const row=document.createElement("div");
-  row.className="row";
-
-  const w=document.createElement("input");
-  w.type="number"; w.placeholder="кг"; w.value=set.weight;
-  w.oninput=e=>set.weight=+e.target.value;
-
-  const r=document.createElement("input");
-  r.type="number"; r.placeholder="раз"; r.value=set.reps;
-  r.oninput=e=>set.reps=+e.target.value;
-
-  const del=document.createElement("button");
-  del.className="danger"; del.innerText="✖";
-  del.onclick=()=>{
-    ex.sets=ex.sets.filter(s=>s!==set);
-    row.remove();
-  };
-
-  row.append(w,r,del);
-  container.appendChild(row);
-}
-
-/* ---------- SAVE ---------- */
-async function saveWorkout(){
-  const payload={
-    workout_date:new Date().toISOString(),
-    info:{
-      exercises:exercisesData
-        .filter(e=>e.name && e.sets.length)
-        .map(e=>({
-          name:e.name,
-          sets:e.sets.filter(s=>s.weight>0 && s.reps>0)
-        }))
-    }
-  };
-
-  if(!payload.info.exercises.length){
-    alert("Добавь упражнение");
-    return;
-  }
-
-  const url=currentWorkoutId
-    ? `${API_URL}/workouts/${currentWorkoutId}`
-    : `${API_URL}/workouts/${telegramId}`;
-
-  await fetch(url,{
-    method:currentWorkoutId?"PUT":"POST",
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(payload)
-  });
-
-  closeEditor();
-  loadHistory();
-}
-
-/* ---------- HISTORY ---------- */
-async function loadHistory(){
-  const r=await fetch(`${API_URL}/workouts/${telegramId}`);
-  workouts=await r.json();
-
-  history.innerHTML="";
-
-  workouts.forEach(w=>{
-    if(!w.info || !w.info.exercises) return;
-
-    const card=document.createElement("div");
-    card.className="card";
-
-    card.innerHTML=`
-      <b>${new Date(w.workout_date).toLocaleDateString()}</b>
-      <div class="small">
-        ${w.info.exercises.map(e=>`
-          ${e.name}: ${e.sets.map(s=>`${s.weight}×${s.reps}`).join(", ")}
-        `).join("<br>")}
-      </div>
-      <button class="secondary">✏️ Редактировать</button>
-      <button class="danger">🗑 Удалить</button>
-    `;
-
-    card.children[2].onclick=()=>openEditor(w);
-    card.children[3].onclick=()=>deleteWorkout(w.id);
+      ex.sets.forEach(s => {
+        const setDiv = document.createElement("div");
+        setDiv.className = "set";
+        setDiv.innerText = `${s.weight} кг × ${s.reps}`;
+        card.appendChild(setDiv);
+      });
+    });
 
     history.appendChild(card);
   });
 }
 
-async function deleteWorkout(id){
-  if(!confirm("Удалить тренировку?")) return;
-  await fetch(`${API_URL}/workouts/${id}`,{method:"DELETE"});
+/* 🔑 ГЛАВНОЕ — запуск ПОСЛЕ загрузки DOM */
+document.addEventListener("DOMContentLoaded", () => {
   loadHistory();
-}
+});
 
-loadHistory();
+/* 🔁 Обновление после добавления (пример) */
+document.getElementById("addBtn").onclick = async () => {
+  await fetch(`${API_URL}/workouts/${telegramId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      workout_date: new Date().toISOString(),
+      info: {
+        exercises: [
+          {
+            name: "Ноги",
+            sets: [{ weight: 60, reps: 15 }]
+          }
+        ]
+      }
+    })
+  });
+
+  await loadHistory(); // ← ВОТ ЭТОГО РАНЬШЕ НЕ БЫЛО
+};
 </script>
 </body>
 </html>
-
