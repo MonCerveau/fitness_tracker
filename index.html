@@ -133,13 +133,26 @@ button {
 #modal.show { display:flex; }
 
 #modalContent {
-  background:var(--card);
-  width:100%;
-  max-width:420px;
-  max-height:90vh;
-  overflow:auto;
-  border-radius:16px;
-  padding:14px;
+  background: var(--card);
+  width: 100%;
+  max-width: 420px;
+  height: 90vh;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+#modalBody {
+  padding: 14px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+#modalFooter {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border-top: 1px solid #1e293b;
 }
 
 input {
@@ -181,12 +194,16 @@ input {
 <!-- MODAL -->
 <div id="modal">
   <div id="modalContent">
-    <h3 id="modalTitle"></h3>
-    <input type="date" id="workoutDate">
-    <div id="modalExercises"></div>
-    <button onclick="addExercise()">➕ Упражнение</button><br><br>
-    <button onclick="saveWorkout()">💾 Сохранить</button>
-    <button class="secondary" onclick="closeModal()">Отмена</button>
+    <div id="modalBody">
+      <h3 id="modalTitle"></h3>
+      <input type="date" id="workoutDate">
+      <div id="modalExercises"></div>
+      <button onclick="addExercise()">➕ Упражнение</button>
+    </div>
+    <div id="modalFooter">
+      <button onclick="saveWorkout()">💾 Сохранить</button>
+      <button class="secondary" onclick="closeModal()">Отмена</button>
+    </div>
   </div>
 </div>
 
@@ -351,3 +368,4 @@ loadWorkouts();
 </script>
 </body>
 </html>
+
