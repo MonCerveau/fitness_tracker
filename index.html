@@ -45,15 +45,21 @@ button {
   font-size: 16px;
 }
 .primary { background: #2a8cff; color: #fff; }
-.danger { background: #ff4d4f; color: #fff; }
 .secondary { background: #e0e0e0; }
+.danger { background: #ff4d4f; color: #fff; }
 input {
   width: 100%;
   padding: 8px;
   margin-top: 6px;
   font-size: 16px;
 }
-hr { margin: 10px 0; }
+.notice {
+  background: #fff3cd;
+  padding: 10px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
 </style>
 </head>
 
@@ -62,28 +68,36 @@ hr { margin: 10px 0; }
 <div class="container" id="app"></div>
 
 <script>
-const tg = Telegram.WebApp;
-tg.ready();
+/* ===== INIT TELEGRAM ===== */
+let telegramId = null;
 
-const telegramId = tg.initDataUnsafe?.user?.id;
+if (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
+  telegramId = Telegram.WebApp.initDataUnsafe.user.id;
+} else {
+  console.warn("Telegram user not found");
+}
+
+/* ===== CONFIG ===== */
 const API_URL = "https://ula-conductorial-vagrantly.ngrok-free.dev";
 
 /* ===== STATE ===== */
 const state = {
   screen: "history",
   workouts: [],
-  draft: { exercises: [] },
-  editWorkoutId: null
+  draft: { exercises: [] }
 };
 
 /* ===== API ===== */
 async function apiGetWorkouts() {
+  if (!telegramId) return [];
   const r = await fetch(`${API_URL}/workouts/${telegramId}`);
   return r.json();
 }
 
 async function apiSaveWorkout() {
-  return fetch(`${API_URL}/workouts/${telegramId}`, {
+  if (!telegramId) return;
+
+  await fetch(`${API_URL}/workouts/${telegramId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -93,14 +107,18 @@ async function apiSaveWorkout() {
   });
 }
 
-async function apiDeleteWorkout(id) {
-  return fetch(`${API_URL}/workouts/${id}`, { method: "DELETE" });
-}
-
 /* ===== RENDER ===== */
 function render() {
   const app = document.getElementById("app");
   app.innerHTML = "";
+
+  if (!telegramId) {
+    const warn = document.createElement("div");
+    warn.className = "notice";
+    warn.innerText =
+      "⚠️ Telegram ID не найден. Открой MiniApp через Telegram-бота.";
+    app.appendChild(warn);
+  }
 
   if (state.screen === "history") renderHistory(app);
   if (state.screen === "form") renderForm(app);
@@ -130,15 +148,6 @@ function renderHistory(app) {
       });
     });
 
-    const del = document.createElement("button");
-    del.className = "danger";
-    del.innerText = "🗑 Удалить";
-    del.onclick = async () => {
-      await apiDeleteWorkout(w.id);
-      await loadHistory();
-    };
-
-    card.appendChild(del);
     app.appendChild(card);
   });
 }
@@ -147,31 +156,32 @@ function renderForm(app) {
   const card = document.createElement("div");
   card.className = "card";
 
-  state.draft.exercises.forEach((ex, exIdx) => {
+  state.draft.exercises.forEach(ex => {
     card.innerHTML += `<div class="exercise">${ex.name}</div>`;
     ex.sets.forEach(s => {
       card.innerHTML += `<div class="set">${s.weight} кг × ${s.reps}</div>`;
     });
   });
 
-  const exName = document.createElement("input");
-  exName.placeholder = "Название упражнения";
+  const name = document.createElement("input");
+  name.placeholder = "Упражнение";
 
   const weight = document.createElement("input");
-  weight.placeholder = "Вес";
   weight.type = "number";
+  weight.placeholder = "Вес";
 
   const reps = document.createElement("input");
-  reps.placeholder = "Повторы";
   reps.type = "number";
+  reps.placeholder = "Повторы";
 
   const addSet = document.createElement("button");
   addSet.className = "secondary";
   addSet.innerText = "Добавить подход";
   addSet.onclick = () => {
-    let ex = state.draft.exercises.find(e => e.name === exName.value);
+    if (!name.value) return;
+    let ex = state.draft.exercises.find(e => e.name === name.value);
     if (!ex) {
-      ex = { name: exName.value, sets: [] };
+      ex = { name: name.value, sets: [] };
       state.draft.exercises.push(ex);
     }
     ex.sets.push({ weight: +weight.value, reps: +reps.value });
@@ -180,27 +190,32 @@ function renderForm(app) {
 
   const save = document.createElement("button");
   save.className = "primary";
-  save.innerText = "💾 Сохранить тренировку";
+  save.innerText = "💾 Сохранить";
   save.onclick = async () => {
     await apiSaveWorkout();
     state.screen = "history";
     await loadHistory();
   };
 
-  const cancel = document.createElement("button");
-  cancel.className = "secondary";
-  cancel.innerText = "Назад";
-  cancel.onclick = () => {
+  const back = document.createElement("button");
+  back.className = "secondary";
+  back.innerText = "Назад";
+  back.onclick = () => {
     state.screen = "history";
     render();
   };
 
-  app.append(card, exName, weight, reps, addSet, save, cancel);
+  app.append(card, name, weight, reps, addSet, save, back);
 }
 
-/* ===== INIT ===== */
+/* ===== LOAD ===== */
 async function loadHistory() {
-  state.workouts = await apiGetWorkouts();
+  try {
+    state.workouts = await apiGetWorkouts();
+  } catch (e) {
+    console.error(e);
+    state.workouts = [];
+  }
   render();
 }
 
