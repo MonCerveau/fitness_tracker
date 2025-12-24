@@ -71,26 +71,24 @@ const fullUrl = `${API_URL}/workouts/${telegramId}`;
 urlBox.innerHTML = `<b>GET:</b> ${fullUrl}`;
 
 /* ===== FETCH ===== */
-fetch(fullUrl)
+fetch(fullUrl, {
+  headers: {
+    "ngrok-skip-browser-warning": "true"
+  }
+})
   .then(r => {
     statusBox.innerHTML = `<b>HTTP статус:</b> ${r.status}`;
     return r.text().then(t => ({ status: r.status, text: t }));
   })
   .then(({ status, text }) => {
     responseBox.textContent = text;
-
-    if (status !== 200) {
-      statusBox.innerHTML += " ❌";
-    } else {
-      statusBox.innerHTML += " ✅";
-    }
   })
   .catch(err => {
-    statusBox.innerHTML = "<span class='err'>❌ fetch не выполнился</span>";
     responseBox.textContent = err.message;
   });
 </script>
 
 </body>
 </html>
+
 
