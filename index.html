@@ -2,209 +2,236 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Workout Diary</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workout MiniApp</title>
+
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
+* { box-sizing: border-box; }
 body {
-  font-family: system-ui;
-  background: #f2f2f2;
-  padding: 12px;
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #f4f4f4;
+  padding: 10px;
 }
 
-.card {
-  background: #fff;
-  padding: 12px;
-  border-radius: 12px;
-  margin-bottom: 12px;
-}
+h2 { margin: 8px 0; }
 
 button {
-  padding: 8px 12px;
-  border-radius: 8px;
+  width: 100%;
+  padding: 10px;
+  margin-top: 6px;
   border: none;
-  font-size: 14px;
+  border-radius: 10px;
+  font-size: 15px;
 }
 
-.primary { background: #2a8cff; color: #fff; }
-.secondary { background: #888; color: #fff; }
-.danger { background: #e74c3c; color: #fff; }
+.primary { background: #2a8cff; color: white; }
+.secondary { background: #888; color: white; }
+.danger { background: #e74c3c; color: white; }
+
+.card {
+  background: white;
+  padding: 12px;
+  border-radius: 14px;
+  margin-bottom: 10px;
+}
 
 input {
   width: 100%;
-  padding: 6px;
+  padding: 8px;
   margin-bottom: 6px;
-  font-size: 14px;
+  font-size: 15px;
 }
+
+.row {
+  display: flex;
+  gap: 6px;
+}
+
+.row input { flex: 1; }
+
+.hidden { display: none; }
 
 .exercise {
   border-top: 1px solid #ddd;
   padding-top: 8px;
   margin-top: 8px;
 }
-
-.set {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 6px;
-}
 </style>
 </head>
 
 <body>
 
-<h3 id="uid"></h3>
-<button class="primary" onclick="openCreate()">➕ Новая тренировка</button>
+<div id="listView">
+  <button class="primary" onclick="openEditor()">➕ Новая тренировка</button>
+  <div id="history"></div>
+</div>
 
-<div id="history"></div>
-
-<!-- MODAL -->
-<div id="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.4)">
-  <div style="background:#fff; padding:16px; border-radius:12px; margin:8% auto; width:95%; max-width:380px">
-    <h4>Тренировка</h4>
-
+<div id="editorView" class="hidden">
+  <div class="card">
+    <h2>Тренировка</h2>
     <div id="exercises"></div>
-
-    <button class="secondary" onclick="addExercise()">➕ Упражнение</button><br><br>
-
+    <button class="secondary" onclick="addExercise()">➕ Упражнение</button>
     <button class="primary" onclick="saveWorkout()">💾 Сохранить</button>
-    <button onclick="closeModal()">Отмена</button>
+    <button onclick="closeEditor()">⬅ Назад</button>
   </div>
 </div>
 
 <script>
-/* ================== CONFIG ================== */
-const API = "https://ula-conductorial-vagrantly.ngrok-free.dev; // ← ЗАМЕНИ
+/* ========== CONFIG ========== */
+const API_URL = "https://YOUR_BACKEND_URL"; // ← ЗАМЕНИ
 const tg = Telegram.WebApp;
 tg.ready();
 
-/* ================== STATE ================== */
 const telegramId = tg.initDataUnsafe.user.id;
-uid.innerText = `Telegram ID: ${telegramId}`;
 
+/* ========== STATE ========== */
+let workouts = [];
 let currentWorkoutId = null;
-let workoutExercises = [];
+let exercisesData = [];
 
-/* ================== MODAL ================== */
-function openCreate() {
-  currentWorkoutId = null;
-  workoutExercises = [];
+/* ========== VIEW CONTROL ========== */
+function openEditor(workout = null) {
+  listView.classList.add("hidden");
+  editorView.classList.remove("hidden");
+
   exercises.innerHTML = "";
-  addExercise();
-  modal.style.display = "block";
+  exercisesData = [];
+  currentWorkoutId = workout?.id ?? null;
+
+  if (workout) {
+    workout.info.exercises.forEach(e => addExercise(e));
+  } else {
+    addExercise();
+  }
 }
 
-function closeModal() {
-  modal.style.display = "none";
+function closeEditor() {
+  editorView.classList.add("hidden");
+  listView.classList.remove("hidden");
 }
 
-/* ================== EXERCISES ================== */
+/* ========== EXERCISES ========== */
 function addExercise(data = { name: "", sets: [] }) {
-  const exIndex = workoutExercises.length;
-  workoutExercises.push(data);
+  const ex = { name: data.name, sets: [...data.sets] };
+  exercisesData.push(ex);
 
-  const block = document.createElement("div");
-  block.className = "exercise";
+  const card = document.createElement("div");
+  card.className = "exercise";
 
-  block.innerHTML = `
-    <input placeholder="Название упражнения">
-    <div class="sets"></div>
-    <button class="secondary">➕ Подход</button>
-  `;
+  const nameInput = document.createElement("input");
+  nameInput.placeholder = "Название упражнения";
+  nameInput.value = ex.name;
+  nameInput.oninput = e => ex.name = e.target.value;
 
-  const nameInput = block.querySelector("input");
-  const setsDiv = block.querySelector(".sets");
-  const addSetBtn = block.querySelector("button");
+  const setsDiv = document.createElement("div");
 
-  nameInput.value = data.name;
-  nameInput.oninput = e => workoutExercises[exIndex].name = e.target.value;
+  const addSetBtn = document.createElement("button");
+  addSetBtn.className = "secondary";
+  addSetBtn.innerText = "➕ Подход";
+  addSetBtn.onclick = () => addSet(ex, setsDiv);
 
-  addSetBtn.onclick = () => addSet(exIndex, setsDiv);
+  card.append(nameInput, setsDiv, addSetBtn);
+  exercises.appendChild(card);
 
-  exercises.appendChild(block);
+  ex.sets.forEach(s => addSet(ex, setsDiv, s));
 }
 
-function addSet(exIndex, container) {
-  const set = { weight: 0, reps: 0 };
-  workoutExercises[exIndex].sets.push(set);
+function addSet(ex, container, data = { weight: 0, reps: 0 }) {
+  const set = { ...data };
+  ex.sets.push(set);
 
   const row = document.createElement("div");
-  row.className = "set";
+  row.className = "row";
 
-  row.innerHTML = `
-    <input type="number" placeholder="кг">
-    <input type="number" placeholder="раз">
-    <button class="danger">✖</button>
-  `;
+  const w = document.createElement("input");
+  w.type = "number";
+  w.placeholder = "кг";
+  w.value = set.weight;
+  w.oninput = e => set.weight = +e.target.value;
 
-  row.children[0].oninput = e => set.weight = Number(e.target.value);
-  row.children[1].oninput = e => set.reps = Number(e.target.value);
-  row.children[2].onclick = () => {
-    workoutExercises[exIndex].sets =
-      workoutExercises[exIndex].sets.filter(s => s !== set);
+  const r = document.createElement("input");
+  r.type = "number";
+  r.placeholder = "раз";
+  r.value = set.reps;
+  r.oninput = e => set.reps = +e.target.value;
+
+  const del = document.createElement("button");
+  del.className = "danger";
+  del.innerText = "✖";
+  del.onclick = () => {
+    ex.sets = ex.sets.filter(s => s !== set);
     row.remove();
   };
 
+  row.append(w, r, del);
   container.appendChild(row);
 }
 
-/* ================== SAVE ================== */
+/* ========== SAVE / DELETE ========== */
 async function saveWorkout() {
-  const info = {
-    exercises: workoutExercises
-      .filter(e => e.name && e.sets.length)
-      .map(e => ({
-        name: e.name,
-        sets: e.sets.filter(s => s.weight > 0 && s.reps > 0)
-      }))
+  const payload = {
+    workout_date: new Date().toISOString(),
+    info: {
+      exercises: exercisesData
+        .filter(e => e.name && e.sets.length)
+        .map(e => ({
+          name: e.name,
+          sets: e.sets.filter(s => s.weight > 0 && s.reps > 0)
+        }))
+    }
   };
 
-  if (!info.exercises.length) {
-    alert("Добавь хотя бы одно упражнение");
+  if (!payload.info.exercises.length) {
+    alert("Добавь упражнение");
     return;
   }
 
   const url = currentWorkoutId
-    ? `${API}/workouts/${currentWorkoutId}`
-    : `${API}/workouts/${telegramId}`;
+    ? `${API_URL}/workouts/${currentWorkoutId}`
+    : `${API_URL}/workouts/${telegramId}`;
 
   await fetch(url, {
     method: currentWorkoutId ? "PUT" : "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      workout_date: new Date().toISOString(),
-      info
-    })
+    body: JSON.stringify(payload)
   });
 
-  closeModal();
+  closeEditor();
   loadHistory();
 }
 
-/* ================== HISTORY ================== */
 async function deleteWorkout(id) {
-  await fetch(`${API}/workouts/${id}`, { method: "DELETE" });
+  if (!confirm("Удалить тренировку?")) return;
+  await fetch(`${API_URL}/workouts/${id}`, { method: "DELETE" });
   loadHistory();
 }
 
+/* ========== HISTORY ========== */
 async function loadHistory() {
-  const r = await fetch(`${API}/workouts/${telegramId}`);
-  const data = await r.json();
+  const r = await fetch(`${API_URL}/workouts/${telegramId}`);
+  workouts = await r.json();
 
   history.innerHTML = "";
 
-  data.forEach(w => {
+  workouts.forEach(w => {
     const card = document.createElement("div");
     card.className = "card";
 
     card.innerHTML = `
-      ${w.info.exercises.map(ex => `
-        <b>${ex.name}</b><br>
-        ${ex.sets.map(s => `${s.weight} кг × ${s.reps}`).join("<br>")}
-      `).join("<hr>")}
-      <br>
-      <button class="danger" onclick="deleteWorkout(${w.id})">🗑 Удалить</button>
+      <b>${new Date(w.workout_date).toLocaleDateString()}</b><br><br>
+      ${w.info.exercises.map(e => `
+        ${e.name}: ${e.sets.map(s => `${s.weight}×${s.reps}`).join(", ")}
+      `).join("<br>")}
+      <br><br>
+      <button class="secondary">✏️ Редактировать</button>
+      <button class="danger">🗑 Удалить</button>
     `;
+
+    card.children[card.children.length - 2].onclick = () => openEditor(w);
+    card.children[card.children.length - 1].onclick = () => deleteWorkout(w.id);
 
     history.appendChild(card);
   });
